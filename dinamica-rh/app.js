@@ -10,7 +10,7 @@
 // trafega "a resposta pronta" para o aluno — a checagem de conjunto completo
 // é feita localmente a partir do id da carta, e só então revelada ao aluno.
 
-import { InitializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
     getAuth,
     signInAnonymously,
@@ -33,8 +33,8 @@ import {
     getDocs,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-import { FirebaseConfig } from "./firebase-config.js";
-import { PROFISSOES, buildDeck, checarConjuntoCompleto, Embaralhar } from "./data.js";
+import { firebaseConfig } from "./firebase-config.js";
+import { PROFISSOES, buildDeck, checarConjuntoCompleto, embaralhar } from "./data.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
