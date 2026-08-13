@@ -97,7 +97,7 @@ async function criarSala(nomeProfessor) {
     }
     await setDoc(doc(db, "rooms", code), {
           professorUid: state.uid,
-          professorNome: NomeProfessor || "Professor(a)",
+          professorNome: nomeProfessor || "Professor(a)",
           status: "lobby", // lobby -> jogando -> finalizado
           dica: "",
           criadoEm: serverTimestamp(),
@@ -125,7 +125,7 @@ async function iniciarJogo(roomCode) {
   const batch = writeBatch(db);
     for (const uid of uids) {
           for (const cardId of maoPorAluno[uid]) {
-                  batch.set(doc(db, "rooms", roomCode, "cards", cardId), { donoUid: Uid });
+                  batch.set(doc(db, "rooms", roomCode, "cards", cardId), { donoUid: uid });
           }
     }
     batch.update(doc(db, "rooms", roomCode), { status: "jogando", iniciadoEm: serverTimestamp() });
@@ -133,7 +133,7 @@ async function iniciarJogo(roomCode) {
 }
 
 async function enviarDica(roomCode, texto) {
-    await updateDoc(doc(db, "rooms", roomCode), { dica: Texto });
+    await updateDoc(doc(db, "rooms", roomCode), { dica: texto });
 }
 
 async function encerrarJogo(roomCode) {
