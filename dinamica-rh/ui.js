@@ -44,7 +44,7 @@ function criarCartaEl(cardId, { selecionavel = false, selecionada = false, onCli
     const carta = DECK_BY_ID[cardId];
     if (!carta) return document.createElement("div");
     const el = document.createElement("div");
-    el.className = `carta tipo-${carta.tipo}` + (selecionável ? " selecionavel" : "") + (Selecionada ? " selecionada" : "");
+        el.className = `carta tipo-${carta.tipo}` + (selecionavel ? " selecionavel" : "") + (selecionada ? " selecionada" : "");
     el.innerHTML = `
         <div class="carta-tipo">${carta.tipo === "H" ? "HABILIDADE" : "COMPETÊNCIA"}</div>
             <div class="carta-texto">${carta.texto}</div>
@@ -380,9 +380,8 @@ async function abrirModalTroca(colegaUid, colegaNome) {
 }
 
 function atualizarBotaoConfirmar() {
-    $("#btn-confirmar-troca").disabled = !(ModalOferta && modalPedida);
+    $("#btn-confirmar-troca").disabled = !(modalOferta && modalPedida);
 }
-
 $("#btn-confirmar-troca").addEventListener("click", async () => {
     try {
           await CDA.proporTroca(
