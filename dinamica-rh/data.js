@@ -1,195 +1,245 @@
-// data.JS — Deck mestre da dinâmica (mesma lógica do material impresso)
-// 10 profissões x (3 habilidades + 3 competências) = 60 cartas
-// NÃO altere os códigos (Pxx) sem também atualizar o gabarito impresso (Parte 1).
+// data.js — Deck mestre da dinâmica
+// 10 profissões x (3 habilidades + 3 competências) = 60 cartas por cópia do deck
+// Os códigos (Pxx) foram mantidos. Os TEXTOS foram revisados (v2) para:
+//   - reduzir cartas que serviam para várias profissões (liderança, negociação,
+//     orçamento, decisão sob pressão, fluxo de caixa);
+//   - deixar Habilidade = saber fazer técnico e Competência = comportamento/atitude.
+// Se usar o material impresso, reimprima o gabarito com estes textos.
 
 export const PROFISSOES = [
   {
-        codigo: "P01",
-        nome: "Gestor(a) de Recursos Humanos",
-        habilidades: [
-                "Operar sistemas de gestão de RH (HRIS) e processos de folha de pagamento",
-                "Conduzir processos de recrutamento e seleção, incluindo entrevistas e dinâmicas de grupo",
-                "Construir e interpretar indicadores de pessoas (turnover, absenteísmo, People Analytics)",
-              ],
-        competencias: [
-                "Mediar conflitos e administrar relações interpessoais no ambiente de trabalho",
-                "Alinhar políticas de pessoas aos objetivos estratégicos do negócio",
-                "Comunicar-se com escuta ativa para integrar perfis e demandas diversas",
-              ],
+    codigo: "P01",
+    nome: "Gestor(a) de Recursos Humanos",
+    vaga: "Rede varejista com 1.200 colaboradores busca líder de pessoas para reduzir o turnover.",
+    habilidades: [
+      "Operar sistemas de gestão de RH (HRIS) e processar a folha de pagamento",
+      "Conduzir recrutamento e seleção com entrevistas por competências e dinâmicas de grupo",
+      "Construir indicadores de pessoas: turnover, absenteísmo e clima organizacional",
+    ],
+    competencias: [
+      "Mediar conflitos entre colaboradores e preservar as relações de trabalho",
+      "Atuar como parceiro do negócio, alinhando as políticas de pessoas à estratégia",
+      "Praticar escuta ativa e empatia ao acolher demandas de colaboradores",
+    ],
   },
   {
-        codigo: "P02",
-        nome: "Analista Financeiro",
-        habilidades: [
-                "Construir modelagens financeiras e planilhas avançadas (Excel/BI)",
-                "Analisar demonstrações contábeis e indicadores (ROI, EBITDA, fluxo de caixa)",
-                "Utilizar ferramentas de IA e análise preditiva para projeções financeiras",
-              ],
-        competencias: [
-                "Tomar decisões analíticas sob incerteza e pressão de prazos",
-                "Garantir conformidade regulatória e tributária nas rotinas financeiras",
-                "Comunicar-se em inglês em operações e negociações internacionais",
-              ],
+    codigo: "P02",
+    nome: "Analista Financeiro",
+    vaga: "Cooperativa agroindustrial procura quem avalie investimentos de R$ 40 milhões.",
+    habilidades: [
+      "Construir modelagens financeiras em planilhas avançadas",
+      "Analisar demonstrações contábeis e índices de liquidez, rentabilidade e endividamento",
+      "Avaliar a viabilidade de investimentos com VPL, TIR e payback",
+    ],
+    competencias: [
+      "Agir com prudência e ceticismo profissional diante de números otimistas",
+      "Manter ética e sigilo no trato de informações financeiras sensíveis",
+      "Ter atenção minuciosa aos detalhes ao conferir valores e projeções",
+    ],
   },
   {
-        codigo: "P03",
-        nome: "Gerente de Marketing",
-        habilidades: [
-                "Planejar e executar campanhas digitais (SEO, mídia paga, redes sociais)",
-                "Analisar métricas de marketing (CAC, LTV, funil de conversão)",
-                "Usar ferramentas de automação e IA generativa na criação de conteúdo",
-              ],
-        competencias: [
-                "Desenvolver visão estratégica de marca e posicionamento de mercado",
-                "Comunicar-se de forma persuasiva por meio de storytelling",
-                "Liderar equipes multidisciplinares e agências parceiras",
-              ],
+    codigo: "P03",
+    nome: "Gerente de Marketing",
+    vaga: "Marca regional de cafés quer ganhar o público jovem nas redes sociais.",
+    habilidades: [
+      "Planejar campanhas digitais com SEO, mídia paga e redes sociais",
+      "Analisar métricas de marketing: CAC, LTV e funil de conversão",
+      "Produzir conteúdo com ferramentas de automação e IA generativa",
+    ],
+    competencias: [
+      "Desenvolver visão estratégica de marca e posicionamento diante da concorrência",
+      "Persuadir o público contando histórias que geram conexão com a marca (storytelling)",
+      "Estimular a criatividade de equipes de criação e agências parceiras",
+    ],
   },
   {
-        codigo: "P04",
-        nome: "Gerente Comercial / Consultor(a) de Vendas",
-        habilidades: [
-                "Aplicar técnicas de negociação e fechamento de vendas",
-                "Gerenciar CRM e pipeline comercial",
-                "Elaborar propostas comerciais e políticas de precificação",
-              ],
-        competencias: [
-                "Demonstrar resiliência e persistência diante de rejeições",
-                "Construir relacionamentos de confiança com clientes",
-                "Manter orientação a metas e resultados",
-              ],
+    codigo: "P04",
+    nome: "Gerente Comercial / Consultor(a) de Vendas",
+    vaga: "Distribuidora de insumos agrícolas precisa bater a meta de vendas da safra.",
+    habilidades: [
+      "Aplicar técnicas de prospecção, contorno de objeções e fechamento de vendas",
+      "Gerenciar o CRM e o funil (pipeline) de oportunidades comerciais",
+      "Elaborar propostas comerciais com política de descontos e preços",
+    ],
+    competencias: [
+      "Demonstrar resiliência e persistência diante do \"não\" dos clientes",
+      "Construir relacionamentos de confiança e fidelizar a carteira de clientes",
+      "Manter foco obstinado em bater as metas mensais de vendas",
+    ],
   },
   {
-        codigo: "P05",
-        nome: "Analista de Dados / Business Intelligence",
-        habilidades: [
-                "Programar em SQL/Python para tratamento e análise de dados",
-                "Construir dashboards e relatórios (Power BI, Tableau)",
-                "Aplicar estatística e modelagem preditiva",
-              ],
-        competencias: [
-                "Transformar dados em insights relevantes para decisões de negócio",
-                "Comunicar resultados técnicos para públicos não especializados",
-                "Manter curiosidade e aprendizado contínuo diante de novas tecnologias de IA",
-              ],
+    codigo: "P05",
+    nome: "Analista de Dados / Business Intelligence",
+    vaga: "Hospital privado quer usar seus dados para prever lotação e reduzir filas.",
+    habilidades: [
+      "Programar em SQL e Python para limpar e tratar grandes bases de dados",
+      "Construir dashboards interativos em Power BI ou Tableau",
+      "Aplicar estatística e modelos preditivos (machine learning)",
+    ],
+    competencias: [
+      "Questionar os dados com curiosidade investigativa até encontrar a causa do problema",
+      "Traduzir resultados técnicos em linguagem simples para gestores leigos",
+      "Aprender continuamente novas tecnologias de dados e IA por conta própria",
+    ],
   },
   {
-        codigo: "P06",
-        nome: "Gestor(a) de Projetos",
-        habilidades: [
-                "Aplicar metodologias ágeis (Scrum, Kanban) e ferramentas de gestão (Jira, MS Project)",
-                "Elaborar cronogramas, orçamentos e planos de gestão de riscos",
-                "Dominar certificações técnicas de referência (PMP, PMI)",
-              ],
-        competencias: [
-                "Exercer liderança situacional sobre equipes multidisciplinares",
-                "Negociar escopo, prazos e recursos com stakeholders",
-                "Adaptar-se a mudanças de escopo e prioridades",
-              ],
+    codigo: "P06",
+    nome: "Gestor(a) de Projetos",
+    vaga: "Construtora precisa entregar uma obra pública no prazo e sem estourar o custo.",
+    habilidades: [
+      "Aplicar metodologias ágeis (Scrum, Kanban) e ferramentas como Jira e MS Project",
+      "Elaborar a EAP, o cronograma e o plano de riscos do projeto",
+      "Controlar escopo, prazo e custo do projeto com indicadores de valor agregado",
+    ],
+    competencias: [
+      "Adaptar o estilo de liderança à maturidade de cada membro do time de projeto",
+      "Negociar mudanças de escopo e prazos com o patrocinador e os stakeholders",
+      "Manter a calma e replanejar quando o projeto muda de rumo",
+    ],
   },
   {
-        codigo: "P07",
-        nome: "Empreendedor(a) / Fundador(a) de Startup",
-        habilidades: [
-                "Elaborar plano de negócios e modelagem de viabilidade (Business Model Canvas)",
-                "Captar recursos e apresentar pitches a investidores (valuation)",
-                "Gerir fluxo de caixa e precificação em estágio inicial",
-              ],
-        competencias: [
-                "Tolerar riscos e manter resiliência diante da incerteza",
-                "Identificar oportunidades de mercado com visão estratégica",
-                "Liderar de forma inspiradora para engajar equipe e investidores",
-              ],
+    codigo: "P07",
+    nome: "Empreendedor(a) / Fundador(a) de Startup",
+    vaga: "Agtech em fase inicial procura sócio(a) para transformar uma ideia em empresa.",
+    habilidades: [
+      "Modelar o negócio com Business Model Canvas e validar hipóteses com clientes (MVP)",
+      "Apresentar pitch a investidores e negociar valuation em rodadas de investimento",
+      "Controlar o caixa e a taxa de queima (burn rate) da startup",
+    ],
+    competencias: [
+      "Tolerar riscos e manter a resiliência diante da incerteza de começar do zero",
+      "Enxergar oportunidades de mercado onde outros só veem problemas",
+      "Inspirar a equipe fundadora e os investidores com o propósito do negócio",
+    ],
   },
   {
-        codigo: "P08",
-        nome: "Analista de Logística / Supply Chain",
-        habilidades: [
-                "Planejar estoques e demanda com sistemas MRP/ERP",
-                "Roteirizar e otimizar operações de transporte",
-                "Monitorar indicadores logísticos (OTIF, lead time, giro de estoque)",
-              ],
-        competencias: [
-                "Aplicar pensamento sistêmico para integrar toda a cadeia de suprimentos",
-                "Resolver problemas de forma colaborativa sob pressão de prazos",
-                "Negociar com fornecedores e parceiros logísticos",
-              ],
+    codigo: "P08",
+    nome: "Analista de Logística / Supply Chain",
+    vaga: "Exportadora de grãos precisa levar a safra do Mato Grosso ao porto sem atrasos.",
+    habilidades: [
+      "Planejar estoques e demanda com sistemas MRP/ERP",
+      "Roteirizar e otimizar fretes e operações de transporte",
+      "Monitorar indicadores logísticos: OTIF, lead time e giro de estoque",
+    ],
+    competencias: [
+      "Pensar de forma sistêmica, do fornecedor ao cliente final",
+      "Resolver imprevistos de entrega em colaboração com outras áreas",
+      "Negociar prazos e condições com fornecedores e transportadoras",
+    ],
   },
   {
-        codigo: "P09",
-        nome: "Consultor(a) de Gestão / Business Consultant",
-        habilidades: [
-                "Diagnosticar organizações e mapear processos (BPM)",
-                "Elaborar relatórios e apresentações executivas",
-                "Aplicar ferramentas de análise estratégica (SWOT, 5 forças de Porter)",
-              ],
-        competencias: [
-                "Comunicar-se e persuadir para conduzir mudanças organizacionais",
-                "Exercer pensamento crítico e visão sistêmica do negócio",
-                "Adaptar-se a diferentes culturas e contextos de clientes",
-              ],
+    codigo: "P09",
+    nome: "Consultor(a) de Gestão / Business Consultant",
+    vaga: "Empresa familiar em crise contrata diagnóstico externo para se reestruturar.",
+    habilidades: [
+      "Diagnosticar organizações e mapear processos (BPM)",
+      "Elaborar relatórios e apresentações executivas para a alta direção",
+      "Aplicar ferramentas de análise estratégica: SWOT e 5 Forças de Porter",
+    ],
+    competencias: [
+      "Conduzir a gestão da mudança e vencer resistências na empresa cliente",
+      "Questionar premissas com pensamento crítico e independência",
+      "Adaptar-se rapidamente à cultura de cada novo cliente",
+    ],
   },
   {
-        codigo: "P10",
-        nome: "Gestor(a) de Operações",
-        habilidades: [
-                "Gerenciar processos produtivos e indicadores de produtividade (OEE)",
-                "Aplicar metodologias de melhoria contínua (Lean, Six Sigma)",
-                "Elaborar e controlar orçamentos operacionais",
-              ],
-        competencias: [
-                "Liderar equipes operacionais em ambientes de pressão",
-                "Tomar decisões rápidas orientadas por dados",
-                "Equilibrar estrategicamente custo, qualidade e prazo",
-              ],
+    codigo: "P10",
+    nome: "Gestor(a) de Operações",
+    vaga: "Frigorífico com três turnos precisa aumentar a produtividade da planta.",
+    habilidades: [
+      "Gerenciar processos produtivos e o indicador OEE da linha de produção",
+      "Aplicar metodologias de melhoria contínua: Lean e Six Sigma",
+      "Controlar os custos operacionais e o orçamento da planta",
+    ],
+    competencias: [
+      "Liderar equipes de chão de fábrica em turnos e sob pressão por produção",
+      "Decidir rapidamente diante de paradas e falhas na linha de produção",
+      "Zelar pela segurança do trabalho e pela qualidade no dia a dia da operação",
+    ],
   },
-  ];
+];
 
-// Achata as profissões em uma lista de 60 cartas: { id, profissaoCodigo, profissaoNome, tipo, texto }
-export function buildDeck() {
-    const cards = [];
-    for (const p of PROFISSOES) {
-          p.habilidades.forEach((texto, i) => {
-                  cards.push({
-                            id: `${p.codigo}-H${i + 1}`,
-                            profissaoCodigo: p.codigo,
-                            profissaoNome: p.nome,
-                            tipo: "H",
-                            texto,
-                  });
-          });
-          p.competencias.forEach((texto, i) => {
-                  cards.push({
-                            id: `${p.codigo}-C${i + 1}`,
-                            profissaoCodigo: p.codigo,
-                            profissaoNome: p.nome,
-                            tipo: "C",
-                            texto,
-                  });
-          });
+// Uma sala pode ter mais alunos do que profissões: cada profissão vira 1 ou mais
+// VAGAS iguais (cópias do mesmo perfil). Id da carta: P01-H1-2 = profissão P01,
+// habilidade 1, cópia 2. Cópias da mesma carta são equivalentes entre si.
+export const MAX_ALUNOS = 60;
+export const MAX_COPIAS = Math.ceil(MAX_ALUNOS / PROFISSOES.length);
+export const CARTAS_POR_ALUNO = 6;
+
+export const baseId = (id) => id.split("-").slice(0, 2).join("-"); // "P01-H1"
+export const profissaoDe = (id) => id.slice(0, 3);
+
+// vagas: { P01: 3, P02: 2, ... } (quantas cópias de cada profissão). Sem vagas = 1 cópia de todas.
+export function buildDeck(vagas = null) {
+  const cards = [];
+  for (const p of PROFISSOES) {
+    const copias = vagas ? vagas[p.codigo] || 0 : MAX_COPIAS;
+    for (let k = 1; k <= copias; k++) {
+      p.habilidades.forEach((texto, i) => {
+        cards.push({ id: `${p.codigo}-H${i + 1}-${k}`, base: `${p.codigo}-H${i + 1}`, profissaoCodigo: p.codigo, profissaoNome: p.nome, tipo: "H", texto });
+      });
+      p.competencias.forEach((texto, i) => {
+        cards.push({ id: `${p.codigo}-C${i + 1}-${k}`, base: `${p.codigo}-C${i + 1}`, profissaoCodigo: p.codigo, profissaoNome: p.nome, tipo: "C", texto });
+      });
     }
-    return cards;
+  }
+  return cards;
 }
 
-// Verifica se um conjunto de 6 cartas forma o perfil correto de UMA profissão (3H + 3C, mesmo código)
+// Perfil completo = 6 cartas DIFERENTES da mesma profissão (3H + 3C). Cópias repetidas não contam duas vezes.
 export function checarConjuntoCompleto(cartas) {
-    if (!cartas || cartas.length !== 6) return null;
-    const codigos = new Set(cartas.map((c) => c.profissaoCodigo));
-    if (codigos.size !== 1) return null;
-    const nH = cartas.filter((c) => c.tipo === "H").length;
-    const nC = cartas.filter((c) => c.tipo === "C").length;
-    if (nH !== 3 || nC !== 3) return null;
-    const codigo = [...codigos][0];
-    const prof = PROFISSOES.find((p) => p.codigo === codigo);
-    return prof ? { codigo, nome: prof.nome } : null;
+  if (!cartas || cartas.length !== 6) return null;
+  const codigos = new Set(cartas.map((c) => c.profissaoCodigo));
+  if (codigos.size !== 1) return null;
+  if (new Set(cartas.map((c) => c.base)).size !== 6) return null;
+  const nH = cartas.filter((c) => c.tipo === "H").length;
+  if (nH !== 3) return null;
+  const codigo = [...codigos][0];
+  const prof = PROFISSOES.find((p) => p.codigo === codigo);
+  return prof ? { codigo, nome: prof.nome } : null;
 }
 
 // Fisher-Yates shuffle (não muta o array original)
 export function embaralhar(arr) {
-    const a = [...arr];
-    for (let i = a.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Define quantas vagas de cada profissão (uma vaga por aluno, espalhadas o mais
+// igualmente possível) e distribui 6 cartas por aluno. Refaz o embaralhamento se
+// alguém começar com 4+ cartas da mesma profissão ou com duas cartas idênticas.
+export function distribuir(uids) {
+  const n = uids.length;
+  if (n < 2) throw new Error("É preciso pelo menos 2 alunos na sala para iniciar o jogo.");
+  if (n > MAX_ALUNOS) throw new Error(`Esta sala tem ${n} alunos; o máximo é ${MAX_ALUNOS}.`);
+  const ordem = embaralhar(PROFISSOES.map((p) => p.codigo));
+  const vagas = {};
+  for (let i = 0; i < n; i++) vagas[ordem[i % ordem.length]] = (vagas[ordem[i % ordem.length]] || 0) + 1;
+  const ids = embaralhar(buildDeck(vagas).map((c) => c.id));
+  const maos = uids.map((u, i) => ids.slice(i * 6, i * 6 + 6));
+
+  // Mão válida: nenhuma carta idêntica repetida e no máximo 3 cartas da mesma profissão
+  const valida = (mao) => {
+    if (new Set(mao.map(baseId)).size !== mao.length) return false;
+    const cont = {};
+    for (const id of mao) if ((cont[profissaoDe(id)] = (cont[profissaoDe(id)] || 0) + 1) > 3) return false;
+    return true;
+  };
+  // Conserta as mãos inválidas trocando cartas com mãos aleatórias
+  for (let it = 0; it < 200000; it++) {
+    const ruins = maos.map((m, i) => (valida(m) ? -1 : i)).filter((i) => i >= 0);
+    if (!ruins.length) break;
+    const a = ruins[Math.floor(Math.random() * ruins.length)];
+    const b = Math.floor(Math.random() * maos.length);
+    if (a === b) continue;
+    const ia = Math.floor(Math.random() * 6), ib = Math.floor(Math.random() * 6);
+    const na = [...maos[a]], nb = [...maos[b]];
+    [na[ia], nb[ib]] = [nb[ib], na[ia]];
+    if (valida(nb) || !valida(maos[b])) { maos[a] = na; maos[b] = nb; }
+  }
+  return { codigos: Object.keys(vagas), vagas, maos: Object.fromEntries(uids.map((u, i) => [u, maos[i]])) };
 }

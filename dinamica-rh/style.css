@@ -24,9 +24,12 @@ body {
     color: #fff;
     padding: 14px 20px;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    position: sticky; top: 0; z-index: 40;
 }
+.topbar > div { display: flex; flex-direction: column; gap: 2px; }
 .brand { font-weight: 700; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: var(--gold); }
 .brand-sub { font-size: 19px; font-weight: 600; }
 
@@ -48,7 +51,7 @@ label {
     margin-bottom: 14px;
     color: #333;
 }
-input[type="text"] {
+input[type="text"], select {
     display: block;
     width: 100%;
     margin-top: 6px;
@@ -156,7 +159,7 @@ input[type="text"] {
 
 .hidden { display: none !important; }
 
-.mão-cartas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.mao-cartas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 
 .carta {
     border: 1px solid var(--border);
@@ -186,9 +189,9 @@ input[type="text"] {
     align-items: center;
 }
 
-.mão-selecionável .carta { cursor: pointer; transition: box-shadow .15s, transform .15s; }
-.mão-selecionável .carta:hover { box-shadow: 0 0 0 2px var(--navy); }
-.mão-selecionável .carta.selecionada { box-shadow: 0 0 0 3px var(--gold); transform: translateY(-2px); }
+.mao-selecionavel .carta { cursor: pointer; transition: box-shadow .15s, transform .15s; }
+.mao-selecionavel .carta:hover { box-shadow: 0 0 0 2px var(--navy); }
+.mao-selecionavel .carta.selecionada { box-shadow: 0 0 0 3px var(--gold); transform: translateY(-2px); }
 
 .lista-trocas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .troca-item {
@@ -197,8 +200,8 @@ input[type="text"] {
     padding: 10px 12px;
     font-size: 13px;
 }
-.troca-item .troca-ações { margin-top: 8px; display: flex; gap: 8px; }
-.troca-item .troca-ações button { font-size: 12px; padding: 6px 10px; }
+.troca-item .troca-acoes { margin-top: 8px; display: flex; gap: 8px; }
+.troca-item .troca-acoes button { font-size: 12px; padding: 6px 10px; }
 .vazio { color: var(--grey); font-size: 13px; font-style: italic; }
 
 .gabarito-box { margin-top: 10px; font-size: 13px; }
@@ -230,3 +233,59 @@ input[type="text"] {
     position: absolute; top: 14px; right: 16px;
     border: none; background: none; font-size: 22px; cursor: pointer; color: var(--grey);
 }
+
+/* ---------- v2 ---------- */
+.mao-cartas { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.btn-danger { border: none; border-radius: 10px; padding: 12px 18px; font-size: 15px; font-weight: 600; cursor: pointer; background: var(--danger); color: #fff; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+
+.timer { font-family: monospace; font-size: 22px; font-weight: 700; background: rgba(255,255,255,.12); padding: 6px 12px; border-radius: 10px; white-space: nowrap; }
+.timer.urgente { background: var(--danger); animation: pulsar 1s infinite; }
+@keyframes pulsar { 50% { opacity: .6; } }
+
+.codigo-projetor { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.codigo-grande { font-family: monospace; font-size: 48px; font-weight: 800; letter-spacing: .15em; color: var(--navy); background: #fff7e6; border: 2px dashed var(--gold); border-radius: 14px; padding: 6px 20px; }
+.painel.destaque { border-color: var(--gold); background: #fffaf0; }
+.painel-head { display: flex; justify-content: space-between; align-items: center; }
+.nome-pill { font-size: 14px; color: var(--grey); font-weight: 600; margin-left: 6px; }
+
+.progresso { height: 12px; background: var(--light); border-radius: 999px; overflow: hidden; margin-bottom: 8px; }
+.progresso > div { height: 100%; width: 0; background: var(--ok); transition: width .4s; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.chip { border: 1px solid var(--gold); background: #fffaf0; color: #6b5215; border-radius: 999px; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+
+.tag { display: inline-block; font-size: 11px; font-weight: 700; color: #fff; border-radius: 6px; padding: 1px 6px; }
+.tag-H { background: var(--blue); }
+.tag-C { background: var(--orange); }
+.contador { display: flex; gap: 6px; }
+.badge { background: var(--danger); color: #fff; border-radius: 999px; font-size: 12px; padding: 1px 8px; vertical-align: middle; }
+
+.carta.nova { animation: chegou 1.6s ease-out; }
+@keyframes chegou { 0% { box-shadow: 0 0 0 4px var(--gold); transform: scale(1.04); } 100% { box-shadow: none; transform: none; } }
+.carta-prof { font-size: 11px; color: var(--grey); padding: 0 10px 8px; }
+
+.mural { display: grid; gap: 10px; }
+.vaga { border: 1px solid var(--border); border-left: 5px solid var(--gold); border-radius: 10px; padding: 10px 12px; }
+.vaga.preenchida { border-left-color: var(--ok); background: #f0fbf4; }
+.vaga-topo { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.vaga-topo span { font-size: 13px; color: var(--grey); }
+.vaga p { margin: 4px 0 0; font-size: 13px; color: #444; }
+
+.argumento { margin-top: 6px; background: var(--light); border-radius: 8px; padding: 6px 10px; font-style: italic; }
+.banner-sucesso small { display: block; margin-top: 6px; font-size: 13px; }
+.banner-alerta { background: #fdecea; border: 1px solid var(--danger); color: #7a1f16; padding: 14px 16px; border-radius: 12px; margin-bottom: 16px; font-size: 15px; }
+.espera-msg { font-size: 16px; }
+.perguntas { padding-left: 20px; line-height: 1.6; font-size: 14px; }
+.gabarito-prof li { margin: 3px 0; list-style: none; }
+.gabarito-prof ul { padding-left: 0; }
+
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 60; max-width: calc(100% - 32px); }
+@media (max-width: 480px) { .codigo-grande { font-size: 34px; } .timer { font-size: 18px; } .brand-sub { font-size: 16px; } }
+
+.carta.repetida { outline: 2px dashed var(--gold); outline-offset: -2px; }
+.carta-repetida { font-size: 11px; font-weight: 700; color: #6b5215; background: #fff7e6; padding: 4px 8px; }
+.vaga-nomes { font-size: 12px !important; color: var(--ok) !important; font-weight: 600; }
+#filtro-colegas { margin: 0 0 10px; }
+.lista-alunos { max-height: 60vh; overflow-y: auto; }
+.aviso-repetida { margin-top: 6px; font-size: 12px; font-weight: 600; color: #6b5215; background: #fff7e6; border-radius: 8px; padding: 4px 8px; }

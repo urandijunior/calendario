@@ -1,5 +1,5 @@
 // app.js — Dinâmica de Grupo: Habilidades e Competências (versão digital, v2)
-//   - Cada aluno recebe 6 cartas; o jogo usa 1 profissão por aluno (2 a 10 alunos por sala)
+//   - Cada aluno recebe 6 cartas; uma vaga por aluno, de 2 a 60 alunos na mesma sala
 //   - Alunos trocam cartas 1-para-1 (proposta com argumento -> aceite/recusa)
 //   - Objetivo: reunir as 6 cartas corretas (3H+3C) de UMA profissão
 //   - Professor: cronômetro, dicas, ranking e encerramento com debriefing
@@ -12,13 +12,13 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
-import { PROFISSOES, buildDeck, checarConjuntoCompleto, distribuir, MAX_ALUNOS } from "./data.js";
+import { PROFISSOES, buildDeck, checarConjuntoCompleto, distribuir, MAX_ALUNOS, baseId, profissaoDe } from "./data.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const DECK = buildDeck();
+const DECK = buildDeck(); // todas as cópias possíveis, para consulta por id
 const DECK_BY_ID = Object.fromEntries(DECK.map((c) => [c.id, c]));
 
 const state = { uid: null, roomCode: null, role: null, nome: null, unsubs: [] };
@@ -87,7 +87,7 @@ async function criarSala(nomeProfessor) {
 async function iniciarJogo(roomCode, duracaoMin) {
   const snap = await getDocs(collection(db, "rooms", roomCode, "students"));
   const uids = snap.docs.map((d) => d.id);
-  const { codigos, maos } = distribuir(uids); // valida 2..10 alunos
+  const { codigos, vagas, maos } = distribuir(uids); // valida 2..60 alunos
 
   const batch = writeBatch(db);
   for (const uid of uids) {
@@ -95,7 +95,7 @@ async function iniciarJogo(roomCode, duracaoMin) {
       batch.set(doc(db, "rooms", roomCode, "cards", cardId), { donoUid: uid });
     }
   }
-  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), profissoesAtivas: codigos };
+  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), profissoesAtivas: codigos, vagas };
   const min = Number(duracaoMin);
   if (min > 0) dados.fimEm = Date.now() + min * 60000;
   batch.update(doc(db, "rooms", roomCode), dados);
@@ -129,11 +129,11 @@ async function entrarNaSala(roomCode, nomeAluno) {
   if (meu.exists()) return room; // reconexão: mantém cartas e progresso
 
   if (room.status !== "lobby") {
-    throw new Error("O jogo desta sala já começou. Peça ao(à) professor(a) o código de outra sala.");
+    throw new Error("O jogo desta sala já começou e as cartas já foram distribuídas. Avise o(a) professor(a).");
   }
   const alunos = await getDocs(collection(db, "rooms", roomCode, "students"));
   if (alunos.size >= MAX_ALUNOS) {
-    throw new Error(`Esta sala já tem ${MAX_ALUNOS} alunos (lotada). Peça o código de outra sala.`);
+    throw new Error(`Esta sala já tem ${MAX_ALUNOS} alunos (lotada). Avise o(a) professor(a).`);
   }
   await setDoc(meuRef, { nome: nomeAluno, entrouEm: serverTimestamp(), completo: false, profissaoCompleta: null }, { merge: true });
   return room;
@@ -199,7 +199,7 @@ async function autoverificarConjunto(roomCode, minhasCartaIds) {
 }
 
 window.CDA = {
-  state, DECK, DECK_BY_ID, PROFISSOES, MAX_ALUNOS,
+  state, DECK, DECK_BY_ID, PROFISSOES, MAX_ALUNOS, baseId, profissaoDe,
   garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarJogo, adicionarTempo,
   entrarNaSala, proporTroca, cancelarTroca, recusarTroca, aceitarTroca, autoverificarConjunto,
   jogoAberto, salvarSessao, lerSessao, limparSessao, clearListeners,

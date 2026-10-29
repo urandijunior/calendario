@@ -1,5 +1,5 @@
 // data.js — Deck mestre da dinâmica
-// 10 profissões x (3 habilidades + 3 competências) = 60 cartas
+// 10 profissões x (3 habilidades + 3 competências) = 60 cartas por cópia do deck
 // Os códigos (Pxx) foram mantidos. Os TEXTOS foram revisados (v2) para:
 //   - reduzir cartas que serviam para várias profissões (liderança, negociação,
 //     orçamento, decisão sob pressão, fluxo de caixa);
@@ -159,29 +159,41 @@ export const PROFISSOES = [
   },
 ];
 
-// Achata as profissões em cartas: { id, profissaoCodigo, profissaoNome, tipo, texto }
-export function buildDeck(codigos = null) {
+// Uma sala pode ter mais alunos do que profissões: cada profissão vira 1 ou mais
+// VAGAS iguais (cópias do mesmo perfil). Id da carta: P01-H1-2 = profissão P01,
+// habilidade 1, cópia 2. Cópias da mesma carta são equivalentes entre si.
+export const MAX_ALUNOS = 60;
+export const MAX_COPIAS = Math.ceil(MAX_ALUNOS / PROFISSOES.length);
+export const CARTAS_POR_ALUNO = 6;
+
+export const baseId = (id) => id.split("-").slice(0, 2).join("-"); // "P01-H1"
+export const profissaoDe = (id) => id.slice(0, 3);
+
+// vagas: { P01: 3, P02: 2, ... } (quantas cópias de cada profissão). Sem vagas = 1 cópia de todas.
+export function buildDeck(vagas = null) {
   const cards = [];
   for (const p of PROFISSOES) {
-    if (codigos && !codigos.includes(p.codigo)) continue;
-    p.habilidades.forEach((texto, i) => {
-      cards.push({ id: `${p.codigo}-H${i + 1}`, profissaoCodigo: p.codigo, profissaoNome: p.nome, tipo: "H", texto });
-    });
-    p.competencias.forEach((texto, i) => {
-      cards.push({ id: `${p.codigo}-C${i + 1}`, profissaoCodigo: p.codigo, profissaoNome: p.nome, tipo: "C", texto });
-    });
+    const copias = vagas ? vagas[p.codigo] || 0 : MAX_COPIAS;
+    for (let k = 1; k <= copias; k++) {
+      p.habilidades.forEach((texto, i) => {
+        cards.push({ id: `${p.codigo}-H${i + 1}-${k}`, base: `${p.codigo}-H${i + 1}`, profissaoCodigo: p.codigo, profissaoNome: p.nome, tipo: "H", texto });
+      });
+      p.competencias.forEach((texto, i) => {
+        cards.push({ id: `${p.codigo}-C${i + 1}-${k}`, base: `${p.codigo}-C${i + 1}`, profissaoCodigo: p.codigo, profissaoNome: p.nome, tipo: "C", texto });
+      });
+    }
   }
   return cards;
 }
 
-// Verifica se a mão (6 cartas) forma o perfil correto de UMA profissão (3H + 3C, mesmo código)
+// Perfil completo = 6 cartas DIFERENTES da mesma profissão (3H + 3C). Cópias repetidas não contam duas vezes.
 export function checarConjuntoCompleto(cartas) {
   if (!cartas || cartas.length !== 6) return null;
   const codigos = new Set(cartas.map((c) => c.profissaoCodigo));
   if (codigos.size !== 1) return null;
+  if (new Set(cartas.map((c) => c.base)).size !== 6) return null;
   const nH = cartas.filter((c) => c.tipo === "H").length;
-  const nC = cartas.filter((c) => c.tipo === "C").length;
-  if (nH !== 3 || nC !== 3) return null;
+  if (nH !== 3) return null;
   const codigo = [...codigos][0];
   const prof = PROFISSOES.find((p) => p.codigo === codigo);
   return prof ? { codigo, nome: prof.nome } : null;
@@ -197,34 +209,37 @@ export function embaralhar(arr) {
   return a;
 }
 
-export const MAX_ALUNOS = PROFISSOES.length; // 1 profissão por aluno
-export const CARTAS_POR_ALUNO = 6;
-
-// Distribui as cartas: escolhe N profissões (N = nº de alunos), embaralha
-// as 6N cartas e entrega 6 para cada um. Refaz o embaralhamento se alguém
-// começar com 4+ cartas da mesma profissão (para garantir que todos negociem).
+// Define quantas vagas de cada profissão (uma vaga por aluno, espalhadas o mais
+// igualmente possível) e distribui 6 cartas por aluno. Refaz o embaralhamento se
+// alguém começar com 4+ cartas da mesma profissão ou com duas cartas idênticas.
 export function distribuir(uids) {
   const n = uids.length;
   if (n < 2) throw new Error("É preciso pelo menos 2 alunos na sala para iniciar o jogo.");
-  if (n > MAX_ALUNOS) {
-    throw new Error(
-      `Esta sala tem ${n} alunos; o máximo é ${MAX_ALUNOS} (uma profissão por aluno). ` +
-        "Crie outra sala para o restante da turma ou formem duplas em um mesmo aparelho."
-    );
+  if (n > MAX_ALUNOS) throw new Error(`Esta sala tem ${n} alunos; o máximo é ${MAX_ALUNOS}.`);
+  const ordem = embaralhar(PROFISSOES.map((p) => p.codigo));
+  const vagas = {};
+  for (let i = 0; i < n; i++) vagas[ordem[i % ordem.length]] = (vagas[ordem[i % ordem.length]] || 0) + 1;
+  const ids = embaralhar(buildDeck(vagas).map((c) => c.id));
+  const maos = uids.map((u, i) => ids.slice(i * 6, i * 6 + 6));
+
+  // Mão válida: nenhuma carta idêntica repetida e no máximo 3 cartas da mesma profissão
+  const valida = (mao) => {
+    if (new Set(mao.map(baseId)).size !== mao.length) return false;
+    const cont = {};
+    for (const id of mao) if ((cont[profissaoDe(id)] = (cont[profissaoDe(id)] || 0) + 1) > 3) return false;
+    return true;
+  };
+  // Conserta as mãos inválidas trocando cartas com mãos aleatórias
+  for (let it = 0; it < 200000; it++) {
+    const ruins = maos.map((m, i) => (valida(m) ? -1 : i)).filter((i) => i >= 0);
+    if (!ruins.length) break;
+    const a = ruins[Math.floor(Math.random() * ruins.length)];
+    const b = Math.floor(Math.random() * maos.length);
+    if (a === b) continue;
+    const ia = Math.floor(Math.random() * 6), ib = Math.floor(Math.random() * 6);
+    const na = [...maos[a]], nb = [...maos[b]];
+    [na[ia], nb[ib]] = [nb[ib], na[ia]];
+    if (valida(nb) || !valida(maos[b])) { maos[a] = na; maos[b] = nb; }
   }
-  const codigos = embaralhar(PROFISSOES.map((p) => p.codigo)).slice(0, n);
-  const ids = buildDeck(codigos).map((c) => c.id);
-  let maos = null;
-  for (let tentativa = 0; tentativa < 200; tentativa++) {
-    const b = embaralhar(ids);
-    const candidata = Object.fromEntries(uids.map((u, i) => [u, b.slice(i * 6, i * 6 + 6)]));
-    const ok = Object.values(candidata).every((mao) => {
-      const cont = {};
-      mao.forEach((id) => (cont[id.slice(0, 3)] = (cont[id.slice(0, 3)] || 0) + 1));
-      return Math.max(...Object.values(cont)) <= 3;
-    });
-    maos = candidata;
-    if (ok) break;
-  }
-  return { codigos, maos };
+  return { codigos: Object.keys(vagas), vagas, maos: Object.fromEntries(uids.map((u, i) => [u, maos[i]])) };
 }

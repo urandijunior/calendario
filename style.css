@@ -282,3 +282,10 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 
 .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 12px 18px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.25); z-index: 60; max-width: calc(100% - 32px); }
 @media (max-width: 480px) { .codigo-grande { font-size: 34px; } .timer { font-size: 18px; } .brand-sub { font-size: 16px; } }
+
+.carta.repetida { outline: 2px dashed var(--gold); outline-offset: -2px; }
+.carta-repetida { font-size: 11px; font-weight: 700; color: #6b5215; background: #fff7e6; padding: 4px 8px; }
+.vaga-nomes { font-size: 12px !important; color: var(--ok) !important; font-weight: 600; }
+#filtro-colegas { margin: 0 0 10px; }
+.lista-alunos { max-height: 60vh; overflow-y: auto; }
+.aviso-repetida { margin-top: 6px; font-size: 12px; font-weight: 600; color: #6b5215; background: #fff7e6; border-radius: 8px; padding: 4px 8px; }

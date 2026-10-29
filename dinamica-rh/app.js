@@ -1,265 +1,207 @@
-// app.js — Dinâmica de Grupo: Habilidades e Competências (versão digital)
-// Preserva 1:1 a lógica do jogo físico:
-//   - 60 cartas (10 profissões x 3 habilidades + 3 competências)
-//   - Cada aluno recebe 6 cartas embaralhadas aleatoriamente
-//   - Alunos trocam cartas 1-para-1 entre si (proposta -> aceite/recusa)
+// app.js — Dinâmica de Grupo: Habilidades e Competências (versão digital, v2)
+//   - Cada aluno recebe 6 cartas; uma vaga por aluno, de 2 a 60 alunos na mesma sala
+//   - Alunos trocam cartas 1-para-1 (proposta com argumento -> aceite/recusa)
 //   - Objetivo: reunir as 6 cartas corretas (3H+3C) de UMA profissão
-//   - Professor pode dar dicas e acompanha o progresso em tempo real
-//
-// Todo o conteúdo das cartas (texto, tipo, profissão) vive em data.JS e NUNCA
-// trafega "a resposta pronta" para o aluno — a checagem de conjunto completo
-// é feita localmente a partir do id da carta, e só então revelada ao aluno.
+//   - Professor: cronômetro, dicas, ranking e encerramento com debriefing
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
-    getAuth,
-    signInAnonymously,
-    onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import {
-    getFirestore,
-    doc,
-    getDoc,
-    setDoc,
-    updateDoc,
-    onSnapshot,
-    collection,
-    query,
-    where,
-    writeBatch,
-    runTransaction,
-    serverTimestamp,
-    orderBy,
-    getDocs,
+  getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where,
+  writeBatch, runTransaction, serverTimestamp, orderBy, getDocs,
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
-import { PROFISSOES, buildDeck, checarConjuntoCompleto, embaralhar } from "./data.js";
+import { PROFISSOES, buildDeck, checarConjuntoCompleto, distribuir, MAX_ALUNOS, baseId, profissaoDe } from "./data.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-const DECK = buildDeck(); // 60 cartas estáticas, indexadas por id
+const DECK = buildDeck(); // todas as cópias possíveis, para consulta por id
 const DECK_BY_ID = Object.fromEntries(DECK.map((c) => [c.id, c]));
 
-// ---------------------------------------------------------------------------
-// Estado local
-// ---------------------------------------------------------------------------
-const state = {
-    uid: null,
-    roomCode: null,
-    role: null, // "professor" | "aluno"
-    nome: null,
-    unsubs: [], // listeners ativos para limpar ao trocar de tela
-};
-
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const state = { uid: null, roomCode: null, role: null, nome: null, unsubs: [] };
 
 function clearListeners() {
-    state.unsubs.forEach((fn) => fn && fn());
-    state.unsubs = [];
+  state.unsubs.forEach((fn) => fn && fn());
+  state.unsubs = [];
 }
 
 function gerarCodigoSala() {
-    const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sem O/0/I/1 (evita confusão)
+  const alfabeto = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
-    for (let i = 0; i < 6; i++) code += alfabeto[Math.floor(Math.random() * alfabeto.length)];
-    return code;
+  for (let i = 0; i < 6; i++) code += alfabeto[Math.floor(Math.random() * alfabeto.length)];
+  return code;
 }
 
-// ---------------------------------------------------------------------------
-// Autenticação (anônima — cada aba/dispositivo vira um uid estável)
-// ---------------------------------------------------------------------------
+// Sessão salva no navegador para retomar após recarregar/fechar a aba
+const SESSAO_KEY = "dinamica-rh-sessao";
+function salvarSessao(s) { try { localStorage.setItem(SESSAO_KEY, JSON.stringify(s)); } catch (e) {} }
+function lerSessao() { try { return JSON.parse(localStorage.getItem(SESSAO_KEY) || "null"); } catch (e) { return null; } }
+function limparSessao() { try { localStorage.removeItem(SESSAO_KEY); } catch (e) {} }
+
+let loginPromise = null;
 function garantirLogin() {
-    return new Promise((resolve, reject) => {
-          onAuthStateChanged(auth, (user) => {
-                  if (user) {
-                            state.uid = user.uid;
-                            resolve(user.uid);
-                  }
-          });
-          signInAnonymously(auth).catch(reject);
+  if (state.uid) return Promise.resolve(state.uid);
+  if (!loginPromise) {
+    loginPromise = new Promise((resolve, reject) => {
+      const off = onAuthStateChanged(auth, (user) => {
+        if (user) { state.uid = user.uid; off(); resolve(user.uid); }
+      });
+      // signInAnonymously espera a restauração da sessão e reaproveita o usuário anônimo já salvo
+      signInAnonymously(auth).catch(reject);
     });
+  }
+  return loginPromise;
+}
+
+// Jogo aberto para trocas? (status jogando e cronômetro não esgotado)
+function jogoAberto(room) {
+  if (!room || room.status !== "jogando") return false;
+  if (room.fimEm && Date.now() > room.fimEm) return false;
+  return true;
 }
 
 // ---------------------------------------------------------------------------
-// Ações — Professor
+// Professor
 // ---------------------------------------------------------------------------
 async function criarSala(nomeProfessor) {
-    await garantirLogin();
-    let code;
-    for (let tentativa = 0; tentativa < 5; tentativa++) {
-          code = gerarCodigoSala();
-          const snap = await getDoc(doc(db, "rooms", code));
-          if (!snap.exists()) break;
-    }
-    await setDoc(doc(db, "rooms", code), {
-          professorUid: state.uid,
-          professorNome: nomeProfessor || "Professor(a)",
-          status: "lobby", // lobby -> jogando -> finalizado
-          dica: "",
-          criadoEm: serverTimestamp(),
-    });
-    return code;
+  await garantirLogin();
+  let code;
+  for (let t = 0; t < 5; t++) {
+    code = gerarCodigoSala();
+    const snap = await getDoc(doc(db, "rooms", code));
+    if (!snap.exists()) break;
+  }
+  await setDoc(doc(db, "rooms", code), {
+    professorUid: state.uid,
+    professorNome: nomeProfessor || "Professor(a)",
+    status: "lobby", // lobby -> jogando -> finalizado
+    dica: "",
+    criadoEm: serverTimestamp(),
+  });
+  return code;
 }
 
-async function iniciarJogo(roomCode) {
-    // 1) Descobrir quem já entrou na sala
-  const studentsSnap = await getDocsOnce(collection(db, "rooms", roomCode, "students"));
-    const uids = studentsSnap.map((d) => d.id);
-    if (uids.length < 2) {
-          throw new Error("É preciso pelo menos 2 alunos na sala para iniciar o jogo.");
-    }
+async function iniciarJogo(roomCode, duracaoMin) {
+  const snap = await getDocs(collection(db, "rooms", roomCode, "students"));
+  const uids = snap.docs.map((d) => d.id);
+  const { codigos, vagas, maos } = distribuir(uids); // valida 2..60 alunos
 
-  // 2) Embaralhar as 60 cartas e distribuir em rodízio (round-robin) entre os presentes
-  const baralho = embaralhar(DECK.map((c) => c.id));
-    const maoPorAluno = Object.fromEntries(uids.map((u) => [u, []]));
-    baralho.forEach((cardId, i) => {
-          const uid = uids[i % uids.length];
-          maoPorAluno[uid].push(cardId);
-    });
-
-  // 3) Gravar a posse inicial de cada carta (documento leve: só o dono)
   const batch = writeBatch(db);
-    for (const uid of uids) {
-          for (const cardId of maoPorAluno[uid]) {
-                  batch.set(doc(db, "rooms", roomCode, "cards", cardId), { donoUid: uid });
-          }
+  for (const uid of uids) {
+    for (const cardId of maos[uid]) {
+      batch.set(doc(db, "rooms", roomCode, "cards", cardId), { donoUid: uid });
     }
-    batch.update(doc(db, "rooms", roomCode), { status: "jogando", iniciadoEm: serverTimestamp() });
-    await batch.commit();
+  }
+  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), profissoesAtivas: codigos, vagas };
+  const min = Number(duracaoMin);
+  if (min > 0) dados.fimEm = Date.now() + min * 60000;
+  batch.update(doc(db, "rooms", roomCode), dados);
+  await batch.commit();
 }
 
 async function enviarDica(roomCode, texto) {
-    await updateDoc(doc(db, "rooms", roomCode), { dica: texto });
+  await updateDoc(doc(db, "rooms", roomCode), { dica: texto });
 }
 
 async function encerrarJogo(roomCode) {
-    await updateDoc(doc(db, "rooms", roomCode), { status: "finalizado" });
+  await updateDoc(doc(db, "rooms", roomCode), { status: "finalizado" });
 }
 
-// helper: leitura única de uma coleção (sem listener)
-async function getDocsOnce(colRef) {
-    const snap = await getDocs(colRef);
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+async function adicionarTempo(roomCode, minutos, fimAtual) {
+  const base = Math.max(Date.now(), fimAtual || Date.now());
+  await updateDoc(doc(db, "rooms", roomCode), { fimEm: base + minutos * 60000 });
 }
 
 // ---------------------------------------------------------------------------
-// Ações — Aluno
+// Aluno
 // ---------------------------------------------------------------------------
 async function entrarNaSala(roomCode, nomeAluno) {
-    await garantirLogin();
-    const roomSnap = await getDoc(doc(db, "rooms", roomCode));
-    if (!roomSnap.exists()) throw new Error("Código de sala não encontrado.");
-    await setDoc(
-          doc(db, "rooms", roomCode, "students", state.uid),
-      {
-              nome: nomeAluno,
-              entrouEm: serverTimestamp(),
-              completo: false,
-              profissaoCompleta: null,
-      },
-      { merge: true }
-        );
-    return roomSnap.data();
+  await garantirLogin();
+  const roomSnap = await getDoc(doc(db, "rooms", roomCode));
+  if (!roomSnap.exists()) throw new Error("Código de sala não encontrado.");
+  const room = roomSnap.data();
+  const meuRef = doc(db, "rooms", roomCode, "students", state.uid);
+  const meu = await getDoc(meuRef);
+
+  if (meu.exists()) return room; // reconexão: mantém cartas e progresso
+
+  if (room.status !== "lobby") {
+    throw new Error("O jogo desta sala já começou e as cartas já foram distribuídas. Avise o(a) professor(a).");
+  }
+  const alunos = await getDocs(collection(db, "rooms", roomCode, "students"));
+  if (alunos.size >= MAX_ALUNOS) {
+    throw new Error(`Esta sala já tem ${MAX_ALUNOS} alunos (lotada). Avise o(a) professor(a).`);
+  }
+  await setDoc(meuRef, { nome: nomeAluno, entrouEm: serverTimestamp(), completo: false, profissaoCompleta: null }, { merge: true });
+  return room;
 }
 
-// Propor troca: eu ofereço `cartaOferecidaId` (minha) em troca de `cartaPedidaId` (do colega `paraUid`)
-async function proporTroca(roomCode, paraUid, paraNome, cartaOferecidaId, cartaPedidaId) {
-    const tradeRef = doc(collection(db, "rooms", roomCode, "trades"));
-    await setDoc(tradeRef, {
-          deUid: state.uid,
-          deNome: state.nome,
-          paraUid,
-          paraNome,
-          cartaOferecidaId,
-          cartaPedidaId,
-          status: "pendente",
-          criadoEm: serverTimestamp(),
-    });
+async function lerSala(roomCode) {
+  const s = await getDoc(doc(db, "rooms", roomCode));
+  return s.exists() ? s.data() : null;
+}
+
+async function proporTroca(roomCode, paraUid, paraNome, cartaOferecidaId, cartaPedidaId, argumento) {
+  const room = await lerSala(roomCode);
+  if (!jogoAberto(room)) throw new Error("As trocas estão encerradas.");
+  const tradeRef = doc(collection(db, "rooms", roomCode, "trades"));
+  const dados = {
+    deUid: state.uid, deNome: state.nome, paraUid, paraNome,
+    cartaOferecidaId, cartaPedidaId, status: "pendente", criadoEm: serverTimestamp(),
+  };
+  if (argumento) dados.argumento = argumento.slice(0, 140);
+  await setDoc(tradeRef, dados);
 }
 
 async function cancelarTroca(roomCode, tradeId) {
-    await updateDoc(doc(db, "rooms", roomCode, "trades", tradeId), { status: "cancelada" });
+  await updateDoc(doc(db, "rooms", roomCode, "trades", tradeId), { status: "cancelada" });
 }
 
 async function recusarTroca(roomCode, tradeId) {
-    await updateDoc(doc(db, "rooms", roomCode, "trades", tradeId), { status: "recusada" });
+  await updateDoc(doc(db, "rooms", roomCode, "trades", tradeId), { status: "recusada" });
 }
 
-// Aceitar troca: transação garante que as duas cartas ainda pertencem a quem a proposta diz
 async function aceitarTroca(roomCode, tradeId) {
-    await runTransaction(db, async (tx) => {
-          const tradeRef = doc(db, "rooms", roomCode, "trades", tradeId);
-          const tradeSnap = await tx.get(tradeRef);
-          if (!tradeSnap.exists()) throw new Error("Proposta não existe mais.");
-          const trade = tradeSnap.data();
-          if (trade.status !== "pendente") throw new Error("Esta proposta já foi resolvida.");
+  const room = await lerSala(roomCode);
+  if (!jogoAberto(room)) throw new Error("As trocas estão encerradas.");
+  await runTransaction(db, async (tx) => {
+    const tradeRef = doc(db, "rooms", roomCode, "trades", tradeId);
+    const tradeSnap = await tx.get(tradeRef);
+    if (!tradeSnap.exists()) throw new Error("Proposta não existe mais.");
+    const trade = tradeSnap.data();
+    if (trade.status !== "pendente") throw new Error("Esta proposta já foi resolvida.");
 
-                             const cardOferecidaRef = doc(db, "rooms", roomCode, "cards", trade.cartaOferecidaId);
-          const cardPedidaRef = doc(db, "rooms", roomCode, "cards", trade.cartaPedidaId);
-          const [cardOferecidaSnap, cardPedidaSnap] = await Promise.all([
-                  tx.get(cardOferecidaRef),
-                  tx.get(cardPedidaRef),
-                ]);
+    const ofRef = doc(db, "rooms", roomCode, "cards", trade.cartaOferecidaId);
+    const peRef = doc(db, "rooms", roomCode, "cards", trade.cartaPedidaId);
+    const [ofSnap, peSnap] = await Promise.all([tx.get(ofRef), tx.get(peRef)]);
+    if (ofSnap.data()?.donoUid !== trade.deUid) throw new Error("A carta oferecida já mudou de dono. Peça uma nova proposta.");
+    if (peSnap.data()?.donoUid !== trade.paraUid) throw new Error("A carta pedida já mudou de dono. Peça uma nova proposta.");
 
-                             if (cardOferecidaSnap.data()?.donoUid !== trade.deUid) {
-                                     throw new Error("A carta oferecida já mudou de dono. Peça para propor a troca novamente.");
-                             }
-          if (cardPedidaSnap.data()?.donoUid !== trade.paraUid) {
-                  throw new Error("A carta pedida já mudou de dono. Peça para propor a troca novamente.");
-          }
-
-                             // swap
-                             tx.update(cardOferecidaRef, { donoUid: trade.paraUid });
-          tx.update(cardPedidaRef, { donoUid: trade.deUid });
-          tx.update(tradeRef, { status: "aceita", resolvidoEm: serverTimestamp() });
-    });
+    tx.update(ofRef, { donoUid: trade.paraUid });
+    tx.update(peRef, { donoUid: trade.deUid });
+    tx.update(tradeRef, { status: "aceita", resolvidoEm: serverTimestamp() });
+  });
 }
 
-// Cada cliente verifica a PRÓPRIA mão e se autodeclara "completo" — nenhum
-// outro usuário precisa (nem consegue, pelas regras) declarar isso por ele.
+// Cada aluno verifica a própria mão e se autodeclara "completo" (uma única vez)
 async function autoverificarConjunto(roomCode, minhasCartaIds) {
-    const minhasCartas = minhasCartaIds.map((id) => DECK_BY_ID[id]).filter(Boolean);
-    const resultado = checarConjuntoCompleto(minhasCartas);
-    if (resultado) {
-          await updateDoc(doc(db, "rooms", roomCode, "students", state.uid), {
-                  completo: true,
-                  profissaoCompleta: resultado.nome,
-                  completoEm: serverTimestamp(),
-          });
-    }
-    return resultado;
+  const resultado = checarConjuntoCompleto(minhasCartaIds.map((id) => DECK_BY_ID[id]).filter(Boolean));
+  if (!resultado) return null;
+  const ref = doc(db, "rooms", roomCode, "students", state.uid);
+  const atual = await getDoc(ref);
+  if (!atual.data()?.completo) {
+    await updateDoc(ref, { completo: true, profissaoCompleta: resultado.nome, completoEm: serverTimestamp() });
+  }
+  return resultado;
 }
 
-// ---------------------------------------------------------------------------
-// Exporta para o escopo global (index.html referencia essas funções nos onclick)
-// ---------------------------------------------------------------------------
 window.CDA = {
-    state,
-    DECK,
-    DECK_BY_ID,
-    PROFISSOES,
-    garantirLogin,
-    criarSala,
-    iniciarJogo,
-    enviarDica,
-    encerrarJogo,
-    entrarNaSala,
-    proporTroca,
-    cancelarTroca,
-    recusarTroca,
-    aceitarTroca,
-    autoverificarConjunto,
-    clearListeners,
-    db,
-    onSnapshot,
-    doc,
-    collection,
-    query,
-    where,
-    orderBy,
-    getDocs,
+  state, DECK, DECK_BY_ID, PROFISSOES, MAX_ALUNOS, baseId, profissaoDe,
+  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarJogo, adicionarTempo,
+  entrarNaSala, proporTroca, cancelarTroca, recusarTroca, aceitarTroca, autoverificarConjunto,
+  jogoAberto, salvarSessao, lerSessao, limparSessao, clearListeners,
+  db, onSnapshot, doc, collection, query, where, orderBy, getDocs,
 };

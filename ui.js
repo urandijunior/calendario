@@ -75,15 +75,16 @@ setInterval(() => {
 // ---------------------------------------------------------------------------
 // Cartas
 // ---------------------------------------------------------------------------
-function criarCartaEl(cardId, { selecionavel = false, onClick = null, nova = false, revelar = false } = {}) {
+function criarCartaEl(cardId, { selecionavel = false, onClick = null, nova = false, revelar = false, repetida = false } = {}) {
   const carta = DECK_BY_ID[cardId];
   const el = document.createElement("div");
   if (!carta) return el;
-  el.className = `carta tipo-${carta.tipo}` + (selecionavel ? " selecionavel" : "") + (nova ? " nova" : "");
+  el.className = `carta tipo-${carta.tipo}` + (selecionavel ? " selecionavel" : "") + (nova ? " nova" : "") + (repetida ? " repetida" : "");
   el.innerHTML = `
     <div class="carta-tipo">${carta.tipo === "H" ? "HABILIDADE" : "COMPETÊNCIA"}</div>
     <div class="carta-texto">${esc(carta.texto)}</div>
-    ${revelar ? `<div class="carta-prof">${esc(carta.profissaoNome)}</div>` : ""}`;
+    ${revelar ? `<div class="carta-prof">${esc(carta.profissaoNome)}</div>` : ""}
+    ${repetida ? `<div class="carta-repetida">🔁 repetida: ofereça em troca</div>` : ""}`;
   if (onClick) el.addEventListener("click", () => onClick(cardId, el));
   return el;
 }
@@ -91,14 +92,20 @@ function criarCartaEl(cardId, { selecionavel = false, onClick = null, nova = fal
 function renderMao(containerEl, cardIds, opts = {}) {
   containerEl.innerHTML = "";
   if (!cardIds.length) { containerEl.innerHTML = `<p class="vazio">Nenhuma carta.</p>`; return; }
-  const ordenadas = [...cardIds].sort((a, b) => DECK_BY_ID[a].tipo.localeCompare(DECK_BY_ID[b].tipo) * -1);
-  ordenadas.forEach((id) => containerEl.appendChild(criarCartaEl(id, { ...opts, nova: opts.novas?.has(id) })));
+  const ordenadas = [...cardIds].sort((a, b) => DECK_BY_ID[a].tipo.localeCompare(DECK_BY_ID[b].tipo) * -1 || a.localeCompare(b));
+  const vistas = new Set();
+  ordenadas.forEach((id) => {
+    const base = CDA.baseId(id);
+    const repetida = opts.marcarRepetidas && vistas.has(base);
+    vistas.add(base);
+    containerEl.appendChild(criarCartaEl(id, { ...opts, nova: opts.novas?.has(id), repetida }));
+  });
 }
 
-function gabaritoHTML(codigos) {
+function gabaritoHTML(codigos, vagas = null) {
   return codigos.map((c) => profPorCodigo[c]).filter(Boolean).map((p) => `
     <div class="gabarito-prof">
-      <b>${esc(p.nome)}</b> <span class="vazio">(${p.codigo})</span>
+      <b>${esc(p.nome)}</b> <span class="vazio">(${p.codigo}${vagas ? ` · ${vagas[p.codigo]} vaga${vagas[p.codigo] > 1 ? "s" : ""}` : ""})</span>
       <ul>${p.habilidades.map((h) => `<li><span class="tag tag-H">H</span> ${esc(h)}</li>`).join("")}
           ${p.competencias.map((c) => `<li><span class="tag tag-C">C</span> ${esc(c)}</li>`).join("")}</ul>
     </div>`).join("");
@@ -228,8 +235,8 @@ $$(".chip[data-dica]").forEach((b) => b.addEventListener("click", () => enviarDi
 function renderGabaritoProfessor() {
   const ativos = salaAtual?.profissoesAtivas;
   $("#gabarito-box").innerHTML =
-    (ativos ? `<p class="hint">Vagas sorteadas para esta sala:</p>` : `<p class="hint">As vagas serão sorteadas ao iniciar (uma por aluno). Deck completo:</p>`) +
-    gabaritoHTML(ativos || PROFISSOES.map((p) => p.codigo));
+    (ativos ? `<p class="hint">Vagas desta sala (uma por aluno; profissões com mais de uma vaga têm cartas repetidas):</p>` : `<p class="hint">As vagas são definidas ao iniciar: uma por aluno, repetindo profissões quando a turma passa de 10. Deck completo:</p>`) +
+    gabaritoHTML(ativos || PROFISSOES.map((p) => p.codigo), salaAtual?.vagas);
 }
 $("#btn-toggle-gabarito").addEventListener("click", () => {
   const box = $("#gabarito-box");
@@ -273,6 +280,7 @@ let jaMarqueiCompleto = false;
 let colegasCache = {};
 let recebidasIds = new Set();
 let ultimasRecebidas = [];
+let ultimasEnviadas = [];
 let recebidasIniciais = true;
 let ultimaDica = "";
 
@@ -287,6 +295,7 @@ function iniciarSalaAluno(codigo) {
   colegasCache = {};
   recebidasIds = new Set();
   ultimasRecebidas = [];
+  ultimasEnviadas = [];
   recebidasIniciais = true;
   ultimaDica = "";
   $("#aluno-completo-banner").classList.add("hidden");
@@ -330,8 +339,10 @@ function iniciarSalaAluno(codigo) {
       }
       meuMaoIds = novosIds;
       maoCarregada = novosIds.length > 0;
-      renderMao($("#minha-mao"), meuMaoIds, { novas });
+      renderMao($("#minha-mao"), meuMaoIds, { novas, marcarRepetidas: true });
       renderContador();
+      renderTrocasRecebidas();
+      limparPropostasObsoletas();
       if (!jaMarqueiCompleto && meuMaoIds.length) {
         const resultado = await CDA.autoverificarConjunto(codigo, meuMaoIds);
         if (resultado) {
@@ -357,15 +368,36 @@ function iniciarSalaAluno(codigo) {
       recebidasIds = new Set(trades.map((t) => t.id));
       ultimasRecebidas = trades;
       renderTrocasRecebidas();
+      limparPropostasObsoletas();
     }
   );
 
   const unsubEnviadas = onSnapshot(
     query(collection(db, "rooms", codigo, "trades"), where("deUid", "==", state.uid), where("status", "==", "pendente")),
-    (snap) => renderTrocasEnviadas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    (snap) => {
+      ultimasEnviadas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      renderTrocasEnviadas(ultimasEnviadas);
+      limparPropostasObsoletas();
+    }
   );
 
   state.unsubs.push(unsubRoom, unsubStudents, unsubMinhaMao, unsubRecebidas, unsubEnviadas);
+}
+
+// Propostas que dependem de uma carta que já saiu da minha mão ficam sem efeito:
+// cancelo as que enviei e recuso as que recebi, sem incomodar ninguém com erro.
+const jaLimpas = new Set();
+function limparPropostasObsoletas() {
+  if (!maoCarregada || !state.roomCode) return;
+  const tenho = new Set(meuMaoIds);
+  ultimasEnviadas.filter((t) => !tenho.has(t.cartaOferecidaId) && !jaLimpas.has(t.id)).forEach((t) => {
+    jaLimpas.add(t.id);
+    CDA.cancelarTroca(state.roomCode, t.id).catch(() => {});
+  });
+  ultimasRecebidas.filter((t) => !tenho.has(t.cartaPedidaId) && !jaLimpas.has(t.id)).forEach((t) => {
+    jaLimpas.add(t.id);
+    CDA.recusarTroca(state.roomCode, t.id).catch(() => {});
+  });
 }
 
 function atualizarTravas() {
@@ -403,14 +435,17 @@ function renderMural() {
   const box = $("#mural-vagas");
   const ativos = salaAtual?.profissoesAtivas || [];
   const preenchidas = {};
-  Object.values(colegasCache).forEach((a) => { if (a.completo) preenchidas[a.profissaoCompleta] = a.nome; });
+  Object.values(colegasCache).forEach((a) => { if (a.completo) (preenchidas[a.profissaoCompleta] ||= []).push(a.nome); });
   box.innerHTML = ativos.map((cod) => {
     const p = profPorCodigo[cod];
     if (!p) return "";
-    const quem = preenchidas[p.nome];
-    return `<div class="vaga${quem ? " preenchida" : ""}">
-        <div class="vaga-topo"><b>${esc(p.nome)}</b><span>${quem ? "✅ " + esc(quem) : "🟡 em aberto"}</span></div>
-        <p>${esc(p.vaga)}</p>
+    const total = salaAtual?.vagas?.[cod] || 1;
+    const quem = preenchidas[p.nome] || [];
+    const cheia = quem.length >= total;
+    return `<div class="vaga${cheia ? " preenchida" : ""}">
+        <div class="vaga-topo"><b>${esc(p.nome)}</b><span>${cheia ? "✅" : "🟡"} ${quem.length}/${total} contratado${total > 1 ? "s" : ""}</span></div>
+        <p>${esc(p.vaga)}${total > 1 ? ` <i>(${total} vagas)</i>` : ""}</p>
+        ${quem.length ? `<p class="vaga-nomes">${quem.map(esc).join(" · ")}</p>` : ""}
       </div>`;
   }).join("");
 }
@@ -418,14 +453,20 @@ function renderMural() {
 function renderDebriefing() {
   const fim = salaAtual && salaAtual.status !== "lobby" && !CDA.jogoAberto(salaAtual);
   $("#aluno-debriefing").classList.toggle("hidden", !fim);
-  if (fim) $("#aluno-gabarito").innerHTML = gabaritoHTML(salaAtual.profissoesAtivas || []);
+  if (fim) $("#aluno-gabarito").innerHTML = gabaritoHTML(salaAtual.profissoesAtivas || [], salaAtual.vagas);
 }
 
 function renderColegas() {
   const box = $("#lista-colegas");
   if (!box) return;
-  const uids = Object.keys(colegasCache).filter((u) => u !== state.uid);
-  box.innerHTML = uids.length ? "" : `<p class="vazio">Nenhum colega ainda.</p>`;
+  const filtro = ($("#filtro-colegas")?.value || "").trim().toLowerCase();
+  const uids = Object.keys(colegasCache)
+    .filter((u) => u !== state.uid)
+    .filter((u) => !filtro || colegasCache[u].nome.toLowerCase().includes(filtro))
+    .sort((a, b) => (colegasCache[a].completo - colegasCache[b].completo) || colegasCache[a].nome.localeCompare(colegasCache[b].nome));
+  const ativos = Object.keys(colegasCache).filter((u) => u !== state.uid && !colegasCache[u].completo).length;
+  $("#colegas-resumo").textContent = `${ativos} negociando`;
+  box.innerHTML = uids.length ? "" : `<p class="vazio">${filtro ? "Nenhum colega com esse nome." : "Nenhum colega ainda."}</p>`;
   const travado = trocasTravadas();
   uids.forEach((uid) => {
     const a = colegasCache[uid];
@@ -458,6 +499,7 @@ function renderTrocasRecebidas() {
     el.innerHTML = `
       <div><b>${esc(t.deNome)}</b> oferece: <span class="tag tag-${of?.tipo}">${of?.tipo}</span> <i>${esc(of?.texto)}</i></div>
       <div>em troca da sua: <span class="tag tag-${pe?.tipo}">${pe?.tipo}</span> <i>${esc(pe?.texto)}</i></div>
+      ${meuMaoIds.filter((id) => CDA.baseId(id) === CDA.baseId(t.cartaPedidaId)).length > 1 ? `<div class="aviso-repetida">🔁 Você tem esta carta repetida: pode trocar sem perder nada.</div>` : ""}
       ${t.argumento ? `<div class="argumento">💬 “${esc(t.argumento)}”</div>` : ""}
       <div class="troca-acoes">
         <button class="btn-primary" data-aceitar ${travado ? "disabled" : ""}>Aceitar</button>
@@ -466,7 +508,15 @@ function renderTrocasRecebidas() {
     el.querySelector("[data-aceitar]").addEventListener("click", async (ev) => {
       ev.target.disabled = true;
       try { await CDA.aceitarTroca(state.roomCode, t.id); }
-      catch (e) { alert(e.message); ev.target.disabled = false; }
+      catch (e) {
+        if (/mudou de dono|já foi resolvida|não existe/.test(e.message)) {
+          CDA.cancelarTroca(state.roomCode, t.id).catch(() => {});
+          toast("⌛ Essa proposta ficou desatualizada: a carta já mudou de mãos.");
+        } else {
+          toast(e.message);
+          ev.target.disabled = false;
+        }
+      }
     });
     el.querySelector("[data-recusar]").addEventListener("click", () => CDA.recusarTroca(state.roomCode, t.id));
     box.appendChild(el);
@@ -513,6 +563,7 @@ async function abrirModalTroca(colegaUid, colegaNome) {
 
   renderMao($("#modal-mao-propria"), meuMaoIds, {
     selecionavel: true,
+    marcarRepetidas: true,
     onClick: (id, el) => { selecionar("#modal-mao-propria", el); modalOferta = id; atualizarBotaoConfirmar(); },
   });
 
@@ -566,3 +617,5 @@ $("#btn-retomar").addEventListener("click", async (ev) => {
     ev.target.disabled = false;
   }
 });
+
+$("#filtro-colegas").addEventListener("input", renderColegas);

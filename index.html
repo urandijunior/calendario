@@ -46,7 +46,7 @@
   <section id="screen-prof-criar" class="screen">
     <button class="link-back" data-back="screen-home">&larr; voltar</button>
     <h1>Criar sala</h1>
-    <p class="hint">Cada sala recebe de 2 a 10 alunos (uma profissão por aluno). Para turmas maiores, crie uma sala por grupo — cada uma em uma aba.</p>
+    <p class="hint">A turma toda entra em uma única sala (até 60 alunos). Cada aluno disputa uma vaga; com mais de 10 alunos, as profissões se repetem e passam a ter 2 ou mais vagas.</p>
     <label>Seu nome
       <input type="text" id="input-nome-professor" placeholder="Prof. ..." />
     </label>
@@ -59,7 +59,7 @@
     <div class="painel codigo-projetor">
       <span class="hint">Código da sala</span>
       <span id="dash-codigo" class="codigo-grande"></span>
-      <span><b id="dash-total-alunos">0</b> / 10 alunos · status: <b id="dash-status">aguardando</b></span>
+      <span><b id="dash-total-alunos">0</b> alunos · status: <b id="dash-status">aguardando</b></span>
     </div>
 
     <div class="painel" id="dash-controles-lobby">
@@ -168,14 +168,8 @@
           <h2>Minha mão</h2>
           <span id="contador-tipos" class="contador"></span>
         </div>
-        <p class="hint">Meta: 3 HABILIDADES + 3 COMPETÊNCIAS da mesma vaga.</p>
+        <p class="hint">Meta: 3 HABILIDADES + 3 COMPETÊNCIAS diferentes da mesma vaga. Cartas repetidas não contam duas vezes.</p>
         <div id="minha-mao" class="mao-cartas"></div>
-      </div>
-
-      <div class="painel">
-        <h2>📌 Mural de vagas</h2>
-        <p class="hint">Estas são as vagas em disputa nesta sala. Cada uma tem exatamente 3 habilidades e 3 competências espalhadas entre vocês.</p>
-        <div id="mural-vagas" class="mural"></div>
       </div>
 
       <div class="painel">
@@ -187,9 +181,16 @@
       </div>
 
       <div class="painel">
-        <h2>Colegas</h2>
+        <div class="painel-head"><h2>Colegas</h2><span id="colegas-resumo" class="hint"></span></div>
+        <input type="text" id="filtro-colegas" placeholder="🔎 Buscar colega pelo nome" autocomplete="off" />
         <div id="lista-colegas" class="lista-alunos"></div>
       </div>
+      <div class="painel">
+        <h2>📌 Mural de vagas</h2>
+        <p class="hint">Vagas em disputa nesta sala. Algumas têm mais de uma contratação: quem busca a mesma vaga pode competir ou se ajudar.</p>
+        <div id="mural-vagas" class="mural"></div>
+      </div>
+
     </div>
 
     <button class="link-back" id="btn-sair-aluno">Sair desta sala</button>
