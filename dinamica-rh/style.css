@@ -289,3 +289,41 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 #filtro-colegas { margin: 0 0 10px; }
 .lista-alunos { max-height: 60vh; overflow-y: auto; }
 .aviso-repetida { margin-top: 6px; font-size: 12px; font-weight: 600; color: #6b5215; background: #fff7e6; border-radius: 8px; padding: 4px 8px; }
+
+.vaga.premium { border-left-color: #7b3fa0; background: linear-gradient(90deg, #f6effa, #fff 60%); }
+.vaga.premium.preenchida { background: #f0fbf4; }
+.vaga-salario { font-size: 14px; font-weight: 700; color: #1F3A5F; margin-top: 2px; }
+.vaga.premium .vaga-salario { color: #7b3fa0; }
+.salario-banner { margin-top: 6px; font-size: 17px; }
+.aluno-item.eu { box-shadow: 0 0 0 2px var(--gold); }
+.aluno-item .status-ok b { color: var(--navy); }
+
+/* ---------- painel do professor: abas e debriefing ---------- */
+#app.largo { max-width: 1100px; }
+.abas { display: flex; gap: 8px; margin-bottom: 16px; }
+.aba { flex: 1; border: 1px solid var(--border); background: #fff; border-radius: 12px; padding: 12px; font-size: 15px; font-weight: 700; color: var(--grey); cursor: pointer; }
+.aba.ativa { background: var(--navy); color: #fff; border-color: var(--navy); }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 6px 0 14px; }
+.kpi { background: var(--light); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.kpi b { font-size: 22px; color: var(--navy); }
+.kpi span { font-size: 12px; color: var(--grey); }
+.painel-interno { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 14px; }
+.painel-interno h3 { text-transform: none; letter-spacing: 0; font-size: 16px; color: var(--navy); margin: 0 0 8px; }
+.painel-interno.destaque { background: #fffaf0; border: 1px solid var(--gold); border-radius: 12px; padding: 14px; }
+.painel-interno h4 { margin: 6px 0; font-size: 14px; }
+.tabela { width: 100%; border-collapse: collapse; font-size: 13px; }
+.tabela th { text-align: left; background: var(--light); color: var(--navy); padding: 8px; font-size: 12px; }
+.tabela td { padding: 7px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.tabela tr.pendente td { color: var(--grey); }
+.tabela small { color: var(--grey); }
+.tabela-rolagem { overflow-x: auto; }
+.duas-colunas { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .duas-colunas { grid-template-columns: 1fr; } }
+.argumentos { padding-left: 18px; font-size: 13px; line-height: 1.5; }
+.argumentos small { color: var(--grey); }
+.grafico { width: 100%; height: auto; max-height: 260px; }
+.grafico .curva { fill: none; stroke: var(--ok); stroke-width: 3; }
+.grafico .base { stroke: #b8c0ca; }
+.grafico .meta { stroke: var(--gold); stroke-dasharray: 5 5; }
+.grafico .tick-troca { stroke: var(--blue); stroke-width: 1.5; opacity: .6; }
+.grafico .eixo { font-size: 11px; fill: var(--grey); font-family: inherit; }

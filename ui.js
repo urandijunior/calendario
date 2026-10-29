@@ -7,6 +7,8 @@ function waitForCDA() {
   });
 }
 
+import { montarDebriefing } from "./debriefing.js";
+
 const CDA = await waitForCDA();
 const { db, onSnapshot, doc, collection, query, where, getDocs, DECK_BY_ID, PROFISSOES, state } = CDA;
 
@@ -23,6 +25,7 @@ let salaAtual = null; // último snapshot do documento da sala (professor ou alu
 function show(screenId) {
   $$(".screen").forEach((el) => el.classList.remove("active"));
   $(`#${screenId}`).classList.add("active");
+  $("#app").classList.toggle("largo", screenId === "screen-prof-dashboard");
   window.scrollTo(0, 0);
 }
 
@@ -67,6 +70,7 @@ setInterval(() => {
     if (state.role === "professor" && !encerrandoPorTempo) {
       encerrandoPorTempo = true;
       CDA.encerrarJogo(state.roomCode).catch(() => {}).finally(() => (encerrandoPorTempo = false));
+      $('.aba[data-aba="tab-debriefing"]')?.click();
     }
     if (state.role === "aluno") atualizarTravas();
   }
@@ -105,15 +109,37 @@ function renderMao(containerEl, cardIds, opts = {}) {
 function gabaritoHTML(codigos, vagas = null) {
   return codigos.map((c) => profPorCodigo[c]).filter(Boolean).map((p) => `
     <div class="gabarito-prof">
-      <b>${esc(p.nome)}</b> <span class="vazio">(${p.codigo}${vagas ? ` · ${vagas[p.codigo]} vaga${vagas[p.codigo] > 1 ? "s" : ""}` : ""})</span>
+      <b>${ehPremium(p.codigo) ? "💎 " : ""}${esc(p.nome)}</b> <span class="vazio">(${p.codigo}${vagas ? ` · ${vagas[p.codigo]} vaga${vagas[p.codigo] > 1 ? "s" : ""}` : ""}${salarioDe(p.codigo) ? ` · ${fmt(salarioDe(p.codigo))}` : ""})</span>
       <ul>${p.habilidades.map((h) => `<li><span class="tag tag-H">H</span> ${esc(h)}</li>`).join("")}
           ${p.competencias.map((c) => `<li><span class="tag tag-C">C</span> ${esc(c)}</li>`).join("")}</ul>
     </div>`).join("");
 }
 
+const codigoPorNome = Object.fromEntries(PROFISSOES.map((p) => [p.nome, p.codigo]));
+const fmt = (v) => CDA.formatarSalario(v);
+function salarioDe(cod) { return salaAtual?.salarios?.[cod] || 0; }
+function ehPremium(cod) { return (salaAtual?.premium || []).includes(cod); }
+function salarioAluno(a) {
+  if (!a?.completo) return 0;
+  return salarioDe(a.profissaoCodigo || codigoPorNome[a.profissaoCompleta]);
+}
+
+// Ranking: maior salário primeiro; empate → quem foi contratado antes
 function ordenarRanking(alunos) {
   const t = (a) => a.completoEm?.toMillis?.() ?? Number.MAX_SAFE_INTEGER;
-  return [...alunos].sort((a, b) => (b.completo - a.completo) || (t(a) - t(b)) || a.nome.localeCompare(b.nome));
+  return [...alunos].sort((a, b) => (salarioAluno(b) - salarioAluno(a)) || (b.completo - a.completo) || (t(a) - t(b)) || a.nome.localeCompare(b.nome));
+}
+
+function rankingHTML(alunos, destaqueUid = null, limite = Infinity) {
+  const lista = ordenarRanking(alunos);
+  return lista.slice(0, limite).map((a, i) => {
+    const cod = a.profissaoCodigo || codigoPorNome[a.profissaoCompleta];
+    const pos = a.completo ? (MEDALHAS[i] || `${i + 1}º`) : "—";
+    return `<div class="aluno-item${a.completo ? " completo" : ""}${a._uid === destaqueUid ? " eu" : ""}">
+      <span>${pos} ${esc(a.nome)}${a._uid === destaqueUid ? " (você)" : ""}</span>
+      <span class="status-ok">${a.completo ? `${ehPremium(cod) ? "💎 " : ""}${esc(a.profissaoCompleta)} · <b>${fmt(salarioAluno(a))}</b>` : "🔄 negociando · R$ 0"}</span>
+    </div>`;
+  }).join("");
 }
 
 const MEDALHAS = ["🥇", "🥈", "🥉"];
@@ -144,6 +170,27 @@ function abrirDashboard(codigo, nome) {
 }
 
 let alunosCache = {};
+let tradesCache = [];
+let debriefTimer = null;
+
+// Aba de debriefing: recalcula no máximo a cada 1,5 s e só quando está visível
+function agendarDebriefing() {
+  if ($("#tab-debriefing").classList.contains("hidden")) return;
+  clearTimeout(debriefTimer);
+  debriefTimer = setTimeout(renderDebriefingProfessor, 1500);
+}
+function renderDebriefingProfessor() {
+  $("#debriefing-conteudo").innerHTML = montarDebriefing({
+    room: salaAtual, alunos: alunosCache, trades: tradesCache,
+    DECK_BY_ID, PROFISSOES, baseId: CDA.baseId, profissaoDe: CDA.profissaoDe, fmt: CDA.formatarSalario,
+  });
+}
+$$(".aba").forEach((b) => b.addEventListener("click", () => {
+  $$(".aba").forEach((x) => x.classList.toggle("ativa", x === b));
+  $("#tab-aovivo").classList.toggle("hidden", b.dataset.aba !== "tab-aovivo");
+  $("#tab-debriefing").classList.toggle("hidden", b.dataset.aba !== "tab-debriefing");
+  if (b.dataset.aba === "tab-debriefing") renderDebriefingProfessor();
+}));
 const STATUS_TXT = { lobby: "aguardando", jogando: "em jogo", finalizado: "encerrado" };
 
 function iniciarDashboardProfessor(codigo) {
@@ -160,8 +207,9 @@ function iniciarDashboardProfessor(codigo) {
     $("#dash-dica-painel").classList.toggle("hidden", data.status !== "jogando");
     $("#btn-mais-tempo").classList.toggle("hidden", data.status !== "jogando" || !data.fimEm);
     $("#btn-encerrar-jogo").classList.toggle("hidden", data.status !== "jogando");
-    $("#dash-titulo-lista").textContent = data.status === "lobby" ? "Alunos na sala" : "Ranking de contratações";
+    $("#dash-titulo-lista").textContent = data.status === "lobby" ? "Alunos na sala" : "🏆 Ranking por remuneração";
     renderListaAlunosProfessor();
+    agendarDebriefing();
     if (!$("#gabarito-box").classList.contains("hidden")) renderGabaritoProfessor();
   });
 
@@ -169,11 +217,16 @@ function iniciarDashboardProfessor(codigo) {
     alunosCache = {};
     snap.forEach((d) => (alunosCache[d.id] = d.data()));
     renderListaAlunosProfessor();
+    agendarDebriefing();
   });
 
   const unsubTrades = onSnapshot(
-    query(collection(db, "rooms", codigo, "trades"), where("status", "==", "aceita")),
-    (snap) => ($("#dash-trocas").textContent = snap.size),
+    collection(db, "rooms", codigo, "trades"),
+    (snap) => {
+      tradesCache = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      $("#dash-trocas").textContent = tradesCache.filter((t) => t.status === "aceita").length;
+      agendarDebriefing();
+    },
     () => ($("#dash-trocas").textContent = "—") // regras podem não permitir ao professor ler as trocas
   );
 
@@ -192,16 +245,17 @@ function renderListaAlunosProfessor() {
   const box = $("#dash-lista-alunos");
   box.innerHTML = "";
   if (!alunos.length) { box.innerHTML = `<p class="vazio">Ninguém entrou ainda.</p>`; return; }
-  const lista = emJogo ? ordenarRanking(alunos) : alunos;
-  let pos = 0;
-  lista.forEach((a) => {
+  if (emJogo) {
+    const comUid = Object.entries(alunosCache).map(([uid, a]) => ({ ...a, _uid: uid }));
+    box.innerHTML = rankingHTML(comUid);
+    const folha = alunos.reduce((s, a) => s + salarioAluno(a), 0);
+    $("#dash-folha").textContent = `Folha total contratada: ${fmt(folha)}`;
+    return;
+  }
+  alunos.forEach((a) => {
     const row = document.createElement("div");
-    row.className = "aluno-item" + (a.completo ? " completo" : "");
-    const medalha = a.completo ? (MEDALHAS[pos] || `${pos + 1}º`) : "";
-    if (a.completo) pos++;
-    row.innerHTML = `
-      <span>${medalha} ${esc(a.nome)}</span>
-      <span class="status-ok">${a.completo ? "✅ " + esc(a.profissaoCompleta) : emJogo ? "🔄 negociando" : "pronto"}</span>`;
+    row.className = "aluno-item";
+    row.innerHTML = `<span>${esc(a.nome)}</span><span class="status-ok">pronto</span>`;
     box.appendChild(row);
   });
 }
@@ -221,6 +275,7 @@ $("#btn-iniciar-jogo").addEventListener("click", async (ev) => {
 $("#btn-encerrar-jogo").addEventListener("click", async () => {
   if (!confirm("Encerrar as trocas e liberar o debriefing para os alunos?")) return;
   await CDA.encerrarJogo(state.roomCode);
+  $('.aba[data-aba="tab-debriefing"]').click();
 });
 
 $("#btn-mais-tempo").addEventListener("click", () => CDA.adicionarTempo(state.roomCode, 2, salaAtual?.fimEm));
@@ -315,6 +370,7 @@ function iniciarSalaAluno(codigo) {
     $("#aluno-espera").classList.toggle("hidden", emJogo);
     $("#aluno-jogo").classList.toggle("hidden", !emJogo);
     renderMural();
+    renderRankingAluno();
     renderDebriefing();
     atualizarTravas();
   });
@@ -325,6 +381,7 @@ function iniciarSalaAluno(codigo) {
     renderEspera();
     renderColegas();
     renderMural();
+    renderRankingAluno();
     atualizarTravas();
   });
 
@@ -348,8 +405,10 @@ function iniciarSalaAluno(codigo) {
         if (resultado) {
           jaMarqueiCompleto = true;
           $("#aluno-profissao-nome").textContent = resultado.nome;
+          $("#aluno-salario").textContent = fmt(salarioDe(resultado.codigo)) + (ehPremium(resultado.codigo) ? " 💎 vaga premium!" : "");
           $("#aluno-completo-banner").classList.remove("hidden");
           atualizarTravas();
+          limparPropostasObsoletas();
         }
       }
     }
@@ -390,11 +449,12 @@ const jaLimpas = new Set();
 function limparPropostasObsoletas() {
   if (!maoCarregada || !state.roomCode) return;
   const tenho = new Set(meuMaoIds);
-  ultimasEnviadas.filter((t) => !tenho.has(t.cartaOferecidaId) && !jaLimpas.has(t.id)).forEach((t) => {
+  const contratado = souCompleto();
+  ultimasEnviadas.filter((t) => (contratado || !tenho.has(t.cartaOferecidaId)) && !jaLimpas.has(t.id)).forEach((t) => {
     jaLimpas.add(t.id);
     CDA.cancelarTroca(state.roomCode, t.id).catch(() => {});
   });
-  ultimasRecebidas.filter((t) => !tenho.has(t.cartaPedidaId) && !jaLimpas.has(t.id)).forEach((t) => {
+  ultimasRecebidas.filter((t) => (contratado || !tenho.has(t.cartaPedidaId)) && !jaLimpas.has(t.id)).forEach((t) => {
     jaLimpas.add(t.id);
     CDA.recusarTroca(state.roomCode, t.id).catch(() => {});
   });
@@ -405,6 +465,8 @@ function atualizarTravas() {
   $("#aluno-encerrado-banner").classList.toggle("hidden", !encerrado);
   if (souCompleto() && colegasCache[state.uid]?.profissaoCompleta) {
     $("#aluno-profissao-nome").textContent = colegasCache[state.uid].profissaoCompleta;
+    const cod = colegasCache[state.uid].profissaoCodigo || codigoPorNome[colegasCache[state.uid].profissaoCompleta];
+    $("#aluno-salario").textContent = fmt(salarioDe(cod)) + (ehPremium(cod) ? " 💎 vaga premium!" : "");
     $("#aluno-completo-banner").classList.remove("hidden");
   }
   renderColegas();
@@ -436,18 +498,32 @@ function renderMural() {
   const ativos = salaAtual?.profissoesAtivas || [];
   const preenchidas = {};
   Object.values(colegasCache).forEach((a) => { if (a.completo) (preenchidas[a.profissaoCompleta] ||= []).push(a.nome); });
-  box.innerHTML = ativos.map((cod) => {
+  const ordenados = [...ativos].sort((a, b) => salarioDe(b) - salarioDe(a));
+  box.innerHTML = ordenados.map((cod) => {
     const p = profPorCodigo[cod];
     if (!p) return "";
     const total = salaAtual?.vagas?.[cod] || 1;
+    const premium = ehPremium(cod);
     const quem = preenchidas[p.nome] || [];
     const cheia = quem.length >= total;
-    return `<div class="vaga${cheia ? " preenchida" : ""}">
-        <div class="vaga-topo"><b>${esc(p.nome)}</b><span>${cheia ? "✅" : "🟡"} ${quem.length}/${total} contratado${total > 1 ? "s" : ""}</span></div>
+    return `<div class="vaga${cheia ? " preenchida" : ""}${premium ? " premium" : ""}">
+        <div class="vaga-topo"><b>${premium ? "💎 " : ""}${esc(p.nome)}</b><span>${cheia ? "✅" : "🟡"} ${quem.length}/${total} contratado${total > 1 ? "s" : ""}</span></div>
+        <div class="vaga-salario">${fmt(salarioDe(cod))}/mês${premium ? " · VAGA PREMIUM" : ""}</div>
         <p>${esc(p.vaga)}${total > 1 ? ` <i>(${total} vagas)</i>` : ""}</p>
         ${quem.length ? `<p class="vaga-nomes">${quem.map(esc).join(" · ")}</p>` : ""}
       </div>`;
   }).join("");
+}
+
+function renderRankingAluno() {
+  const box = $("#aluno-ranking");
+  if (!box || !salaAtual || salaAtual.status === "lobby") return;
+  const comUid = Object.entries(colegasCache).map(([uid, a]) => ({ ...a, _uid: uid }));
+  const lista = ordenarRanking(comUid);
+  const minhaPos = lista.findIndex((a) => a._uid === state.uid);
+  const top = rankingHTML(comUid, state.uid, 10);
+  const eu = minhaPos >= 10 ? `<p class="hint">Sua posição: ${minhaPos + 1}º de ${lista.length}</p>` : "";
+  box.innerHTML = top + eu;
 }
 
 function renderDebriefing() {
@@ -509,7 +585,7 @@ function renderTrocasRecebidas() {
       ev.target.disabled = true;
       try { await CDA.aceitarTroca(state.roomCode, t.id); }
       catch (e) {
-        if (/mudou de dono|já foi resolvida|não existe/.test(e.message)) {
+        if (/mudou de dono|já foi resolvida|não existe|perdeu o efeito/.test(e.message)) {
           CDA.cancelarTroca(state.roomCode, t.id).catch(() => {});
           toast("⌛ Essa proposta ficou desatualizada: a carta já mudou de mãos.");
         } else {

@@ -3,6 +3,7 @@
 //   - Alunos trocam cartas 1-para-1 (proposta com argumento -> aceite/recusa)
 //   - Objetivo: reunir as 6 cartas corretas (3H+3C) de UMA profissão
 //   - Professor: cronômetro, dicas, ranking e encerramento com debriefing
+//   - Cada vaga tem salário; 3 vagas premium (as mais escassas) definem o ranking por remuneração
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
@@ -12,7 +13,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 import { firebaseConfig } from "./firebase-config.js";
-import { PROFISSOES, buildDeck, checarConjuntoCompleto, distribuir, MAX_ALUNOS, baseId, profissaoDe } from "./data.js";
+import { PROFISSOES, buildDeck, checarConjuntoCompleto, distribuir, MAX_ALUNOS, baseId, profissaoDe, definirSalarios, formatarSalario } from "./data.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -95,7 +96,8 @@ async function iniciarJogo(roomCode, duracaoMin) {
       batch.set(doc(db, "rooms", roomCode, "cards", cardId), { donoUid: uid });
     }
   }
-  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), profissoesAtivas: codigos, vagas };
+  const { salarios, premium } = definirSalarios(vagas);
+  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), profissoesAtivas: codigos, vagas, salarios, premium };
   const min = Number(duracaoMin);
   if (min > 0) dados.fimEm = Date.now() + min * 60000;
   batch.update(doc(db, "rooms", roomCode), dados);
@@ -156,13 +158,16 @@ async function proporTroca(roomCode, paraUid, paraNome, cartaOferecidaId, cartaP
   await setDoc(tradeRef, dados);
 }
 
-async function cancelarTroca(roomCode, tradeId) {
-  await updateDoc(doc(db, "rooms", roomCode, "trades", tradeId), { status: "cancelada" });
+// Só muda o status de uma proposta que ainda está pendente (nunca sobrescreve uma troca aceita)
+async function resolverSePendente(roomCode, tradeId, status) {
+  await runTransaction(db, async (tx) => {
+    const ref = doc(db, "rooms", roomCode, "trades", tradeId);
+    const snap = await tx.get(ref);
+    if (snap.exists() && snap.data().status === "pendente") tx.update(ref, { status, resolvidoEm: serverTimestamp() });
+  });
 }
-
-async function recusarTroca(roomCode, tradeId) {
-  await updateDoc(doc(db, "rooms", roomCode, "trades", tradeId), { status: "recusada" });
-}
+const cancelarTroca = (roomCode, tradeId) => resolverSePendente(roomCode, tradeId, "cancelada");
+const recusarTroca = (roomCode, tradeId) => resolverSePendente(roomCode, tradeId, "recusada");
 
 async function aceitarTroca(roomCode, tradeId) {
   const room = await lerSala(roomCode);
@@ -176,13 +181,22 @@ async function aceitarTroca(roomCode, tradeId) {
 
     const ofRef = doc(db, "rooms", roomCode, "cards", trade.cartaOferecidaId);
     const peRef = doc(db, "rooms", roomCode, "cards", trade.cartaPedidaId);
-    const [ofSnap, peSnap] = await Promise.all([tx.get(ofRef), tx.get(peRef)]);
+    const deRef = doc(db, "rooms", roomCode, "students", trade.deUid);
+    const paraRef = doc(db, "rooms", roomCode, "students", trade.paraUid);
+    const [ofSnap, peSnap, deSnap, paraSnap] = await Promise.all([tx.get(ofRef), tx.get(peRef), tx.get(deRef), tx.get(paraRef)]);
+    if (deSnap.data()?.completo || paraSnap.data()?.completo) {
+      tx.update(tradeRef, { status: "cancelada", resolvidoEm: serverTimestamp() });
+      return "contratado";
+    }
     if (ofSnap.data()?.donoUid !== trade.deUid) throw new Error("A carta oferecida já mudou de dono. Peça uma nova proposta.");
     if (peSnap.data()?.donoUid !== trade.paraUid) throw new Error("A carta pedida já mudou de dono. Peça uma nova proposta.");
 
     tx.update(ofRef, { donoUid: trade.paraUid });
     tx.update(peRef, { donoUid: trade.deUid });
     tx.update(tradeRef, { status: "aceita", resolvidoEm: serverTimestamp() });
+    return "ok";
+  }).then((r) => {
+    if (r === "contratado") throw new Error("Essa proposta perdeu o efeito: um dos dois já foi contratado.");
   });
 }
 
@@ -193,13 +207,13 @@ async function autoverificarConjunto(roomCode, minhasCartaIds) {
   const ref = doc(db, "rooms", roomCode, "students", state.uid);
   const atual = await getDoc(ref);
   if (!atual.data()?.completo) {
-    await updateDoc(ref, { completo: true, profissaoCompleta: resultado.nome, completoEm: serverTimestamp() });
+    await updateDoc(ref, { completo: true, profissaoCompleta: resultado.nome, profissaoCodigo: resultado.codigo, completoEm: serverTimestamp() });
   }
   return resultado;
 }
 
 window.CDA = {
-  state, DECK, DECK_BY_ID, PROFISSOES, MAX_ALUNOS, baseId, profissaoDe,
+  state, DECK, DECK_BY_ID, PROFISSOES, MAX_ALUNOS, baseId, profissaoDe, formatarSalario,
   garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarJogo, adicionarTempo,
   entrarNaSala, proporTroca, cancelarTroca, recusarTroca, aceitarTroca, autoverificarConjunto,
   jogoAberto, salvarSessao, lerSessao, limparSessao, clearListeners,

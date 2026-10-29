@@ -243,3 +243,27 @@ export function distribuir(uids) {
   }
   return { codigos: Object.keys(vagas), vagas, maos: Object.fromEntries(uids.map((u, i) => [u, maos[i]])) };
 }
+
+// ---------------------------------------------------------------------------
+// Remuneração: cada vaga tem um salário. 3 vagas PREMIUM, sorteadas entre as
+// profissões com MENOS vagas na sala (as mais escassas), pagam bem mais.
+// O ranking da turma é feito pelo salário conquistado (desempate: quem foi
+// contratado primeiro). Quem não é contratado até o fim fica com R$ 0.
+// ---------------------------------------------------------------------------
+export const SALARIOS_PREMIUM = [20000, 17500, 15000];
+const SALARIOS_PADRAO = [6500, 7000, 7500, 8000, 8500, 9000, 9500];
+
+export function definirSalarios(vagas) {
+  const codigos = Object.keys(vagas);
+  const qtdPremium = Math.max(1, Math.min(3, Math.floor(codigos.length / 2)));
+  const ordem = embaralhar(codigos).sort((a, b) => vagas[a] - vagas[b]); // mais escassas primeiro
+  const premium = ordem.slice(0, qtdPremium);
+  const salarios = {};
+  premium.forEach((c, i) => (salarios[c] = SALARIOS_PREMIUM[i]));
+  const padrao = embaralhar(SALARIOS_PADRAO);
+  ordem.slice(qtdPremium).forEach((c, i) => (salarios[c] = padrao[i % padrao.length]));
+  return { salarios, premium };
+}
+
+export const formatarSalario = (v) =>
+  (Number(v) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });

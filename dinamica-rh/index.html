@@ -62,6 +62,13 @@
       <span><b id="dash-total-alunos">0</b> alunos · status: <b id="dash-status">aguardando</b></span>
     </div>
 
+    <div class="abas" role="tablist">
+      <button class="aba ativa" data-aba="tab-aovivo" role="tab">📡 Ao vivo</button>
+      <button class="aba" data-aba="tab-debriefing" role="tab">🗣 Debriefing</button>
+    </div>
+
+    <div id="tab-aovivo">
+
     <div class="painel" id="dash-controles-lobby">
       <h2>Preparar rodada</h2>
       <label>Tempo de negociação
@@ -96,6 +103,7 @@
         <button class="chip" data-dica="Usem o Mural de Vagas: imaginem o dia a dia de quem ocupa cada vaga.">Usem o mural</button>
         <button class="chip" data-dica="Quem já completou o perfil pode ajudar os colegas a encontrar as cartas que faltam!">Ajuda mútua</button>
         <button class="chip" data-dica="Restam poucos minutos! Priorizem as trocas que completam um perfil.">Reta final</button>
+        <button class="chip" data-dica="As vagas premium são poucas: quem não vai conseguir uma deve garantir outra vaga antes que o tempo acabe. Sem contratação = R$ 0!">Premium x garantia</button>
       </div>
       <div class="row">
         <input type="text" id="input-dica" placeholder="Ou escreva sua própria dica..." />
@@ -105,12 +113,22 @@
 
     <div class="painel">
       <h2 id="dash-titulo-lista">Alunos na sala</h2>
+      <p id="dash-folha" class="hint"></p>
       <div id="dash-lista-alunos" class="lista-alunos"></div>
     </div>
 
     <div class="painel">
       <button class="link-toggle" id="btn-toggle-gabarito">Mostrar gabarito (uso do professor)</button>
       <div id="gabarito-box" class="gabarito-box hidden"></div>
+    </div>
+    </div>
+
+    <div id="tab-debriefing" class="hidden">
+      <div class="painel">
+        <h2>🗣 Debriefing da rodada</h2>
+        <p class="hint">Atualiza sozinho enquanto a turma joga e fica completo ao encerrar.</p>
+        <div id="debriefing-conteudo"></div>
+      </div>
     </div>
 
     <button class="link-back" id="btn-sair-prof">Sair desta sala</button>
@@ -146,6 +164,7 @@
 
     <div id="aluno-completo-banner" class="banner-sucesso hidden">
       🎉 Contratado(a)! Você reconstituiu o perfil de <strong id="aluno-profissao-nome"></strong>.
+      <div class="salario-banner">Salário: <strong id="aluno-salario"></strong></div>
       <small>Suas cartas agora ficam travadas. Ajude os colegas: diga a eles quais cartas faltam para cada vaga.</small>
     </div>
 
@@ -158,6 +177,7 @@
           <li>Que competências aparecem em quase todas as vagas? O que isso diz sobre o mercado?</li>
           <li>Que competências você usou durante as negociações?</li>
           <li>Alguma carta parecia servir para outra vaga? Qual e por quê?</li>
+          <li>Valeu a pena disputar uma vaga 💎 premium? Quando foi melhor aceitar outra vaga?</li>
         </ol>
         <h3>Gabarito das vagas desta sala</h3>
         <div id="aluno-gabarito" class="gabarito-box"></div>
@@ -186,8 +206,14 @@
         <div id="lista-colegas" class="lista-alunos"></div>
       </div>
       <div class="painel">
+        <h2>🏆 Ranking por remuneração</h2>
+        <p class="hint">Vale o salário da vaga conquistada. Empate: quem foi contratado primeiro. Sem contratação ao fim do tempo = R$ 0.</p>
+        <div id="aluno-ranking" class="lista-alunos"></div>
+      </div>
+
+      <div class="painel">
         <h2>📌 Mural de vagas</h2>
-        <p class="hint">Vagas em disputa nesta sala. Algumas têm mais de uma contratação: quem busca a mesma vaga pode competir ou se ajudar.</p>
+        <p class="hint">Vagas em disputa, da mais bem paga para a menos. As 💎 premium pagam mais e têm poucas vagas: nem todos conseguem uma!</p>
         <div id="mural-vagas" class="mural"></div>
       </div>
 
