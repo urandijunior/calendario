@@ -95,7 +95,7 @@ async function criarSala(nomeProfessor, turma) {
   return code;
 }
 
-async function iniciarJogo(roomCode, duracaoMin, numImpostores = D.IMPOSTORES_PADRAO) {
+async function iniciarJogo(roomCode, duracaoMin, numImpostores = D.IMPOSTORES_PADRAO, votosParaDescobrir = D.VOTOS_PARA_DESCOBRIR_PADRAO) {
   const snap = await getDocs(collection(db, "rooms", roomCode, "students"));
   const alunos = snap.docs.map((d) => ({ uid: d.id, ramo: d.data().ramo })).filter((a) => D.RAMO[a.ramo]);
   const maos = D.distribuir(alunos);
@@ -118,7 +118,7 @@ async function iniciarJogo(roomCode, duracaoMin, numImpostores = D.IMPOSTORES_PA
     ops.slice(i, i + 400).forEach(([ref, data, upd]) => (upd ? batch.update(ref, data) : batch.set(ref, data)));
     await batch.commit();
   }
-  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), ramosAtivos: [...new Set(alunos.map((a) => a.ramo))], numImpostores: nImp };
+  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), ramosAtivos: [...new Set(alunos.map((a) => a.ramo))], numImpostores: nImp, votosParaDescobrir: Math.max(1, Math.min(3, Number(votosParaDescobrir) || D.VOTOS_PARA_DESCOBRIR_PADRAO)) };
   const min = Number(duracaoMin);
   if (min > 0) dados.fimEm = agora() + min * 60000;
   await updateDoc(doc(db, "rooms", roomCode), dados);

@@ -239,7 +239,7 @@ const impSetProf = () => new Set(Object.entries(papeisProf).filter(([, p]) => p.
 function avalImpProf() {
   const set = impSetProf();
   const arr = Object.values(alunosProf);
-  return Object.fromEntries([...set].map((u) => [u, D.avaliarImpostor(u, papeisProf[u].missao, arr, tradesProf, set)]));
+  return Object.fromEntries([...set].map((u) => [u, D.avaliarImpostor(u, papeisProf[u].missao, arr, tradesProf, set, sala?.votosParaDescobrir ?? 1)]));
 }
 function renderImpostoresProf() {
   const set = impSetProf();
@@ -250,7 +250,7 @@ function renderImpostoresProf() {
     const m = D.MISSOES[x.missao];
     return `<div class="imp-card"><b>${m.icone} ${esc(x.nome)}</b> · ${esc(m.nome)}<br />
       Trocas: <b>${x.trocas}/${D.MAX_TROCAS}</b> · prejudiciais: <b>${x.prejudiciais}/${m.meta}</b> <small>(${esc(m.criterio)})</small><br />
-      Votos recebidos: <b>${x.votos}</b> · ${x.cumprida ? "✅ missão cumprida" : alunosProf[x.uid]?.fase === "negociando" && sala?.status === "jogando" ? "⏳ missão em andamento" : "❌ missão não cumprida"}<br />
+      Votos recebidos: <b>${x.votos}</b> <small>(descoberto com ${x.limiteVotos})</small> · ${x.cumprida ? "✅ missão cumprida" : alunosProf[x.uid]?.fase === "negociando" && sala?.status === "jogando" ? "⏳ missão em andamento" : "❌ missão não cumprida"}<br />
       Nota prevista: <b>${fmtNota(x.nota)}</b> · ${x.nivel.emoji} ${esc(x.nivel.nome)}</div>`;
   }).join("")}</div>
   <p class="hint" style="margin-top:8px">Os impostores não ocupam vagas da classificação. Ao publicar o resultado, eles são revelados para a turma.</p>`;
@@ -345,7 +345,7 @@ $("#btn-iniciar-jogo").addEventListener("click", async (ev) => {
   const semRamo = Object.values(alunosProf).filter((a) => !D.RAMO[a.ramo]).length;
   if (semRamo) { $("#erro-dashboard").textContent = `${semRamo} aluno(s) sem ramo escolhido.`; return; }
   ev.target.disabled = true;
-  try { await L.iniciarJogo(state.roomCode, $("#input-duracao").value, $("#input-impostores").value); }
+  try { await L.iniciarJogo(state.roomCode, $("#input-duracao").value, $("#input-impostores").value, $("#input-votos").value); }
   catch (e) { $("#erro-dashboard").textContent = e.message || "Erro ao iniciar."; }
   finally { ev.target.disabled = false; }
 });
@@ -436,6 +436,7 @@ let meuPapel = null, buscandoPapel = false; // { papel: "equipe" | "impostor", m
 let aceitasDe = [], aceitasPara = [];
 let missaoOculta = false;
 const souImpostor = () => meuPapel?.papel === "impostor";
+const limiteTxt = () => { const n = sala?.votosParaDescobrir ?? 1; return n === 1 ? "1 voto" : `${n} votos`; };
 const reveladosSet = () => new Set((sala?.impostoresRevelados || []).map((x) => x.uid));
 
 const minhaProx = () => (eu ? D.proximidade(eu.ramo, minhaMao) : 0);
@@ -557,7 +558,7 @@ function renderImpostor() {
     </div>
     <p>🗂️ <b>Seu dossiê:</b> ${esc(m.dica)}</p>
     <p>🤫 Ninguém sabe que você é impostor. Escolha um ramo de fachada, negocie normalmente, responda ao questionário e vote como todo mundo.</p>
-    <p><b>Sua nota:</b> nenhum voto e missão cumprida = 1,0 · nenhum voto e missão incompleta = 0,8 · se receber pelo menos 1 voto, foi descoberto(a) = 0,5.</p>`;
+    <p><b>Sua nota:</b> se receber ${limiteTxt()} ou mais, foi descoberto(a) = 0,5 · menos que isso e missão cumprida = 1,0 · menos que isso e missão incompleta = 0,8.</p>`;
 }
 $("#btn-ocultar-missao").addEventListener("click", () => { missaoOculta = !missaoOculta; renderImpostor(); });
 
@@ -816,7 +817,7 @@ function renderVoto(box) {
   const opcoes = Object.values(colegas).filter((a) => a.uid !== state.uid).sort((a, b) => a.nome.localeCompare(b.nome));
   box.innerHTML = `<div class="painel voto-box">
     <h2>🗳️ Quem é impostor?</h2>
-    <p class="hint">Há ${nImp} impostor${nImp > 1 ? "es" : ""} na sala. Vote em 1 suspeito. Basta 1 voto para um impostor ser descoberto, então só vote se tiver motivo.${eu.voto ? ` Seu voto atual: <b>${esc(nome(eu.voto))}</b> (pode mudar até a publicação).` : ""}</p>
+    <p class="hint">Há ${nImp} impostor${nImp > 1 ? "es" : ""} na sala. Vote em 1 suspeito. Um impostor é descoberto com ${limiteTxt()} da turma, então só vote se tiver motivo.${eu.voto ? ` Seu voto atual: <b>${esc(nome(eu.voto))}</b> (pode mudar até a publicação).` : ""}</p>
     <div class="opcoes">${opcoes.map((a) => `<label class="opcao${eu.voto === a.uid ? " sel" : ""}"><input type="radio" name="voto" value="${a.uid}" ${eu.voto === a.uid ? "checked" : ""} /><span><b>${esc(a.nome)}</b></span></label>`).join("")}
       <label class="opcao${eu.voto === "ninguem" ? " sel" : ""}"><input type="radio" name="voto" value="ninguem" ${eu.voto === "ninguem" ? "checked" : ""} /><span><b>Não tenho suspeito</b></span></label></div>
     <button class="btn-primary" id="btn-votar" style="margin-top:10px" disabled>Registrar voto</button></div>`;

@@ -19,6 +19,7 @@ export const MAX_ALUNOS = 60;
 // ---------------------------------------------------------------------------
 export const IMPOSTORES_PADRAO = 2;
 export const MIN_ALUNOS_IMPOSTOR = 6;
+export const VOTOS_PARA_DESCOBRIR_PADRAO = 2; // votos necessários para o impostor ser descoberto
 export const MISSOES = {
   cacador: {
     id: "cacador", nome: "O Caçador de Talentos", icone: "🎯", meta: 3,
@@ -46,7 +47,7 @@ export function efeitoTroca(ramoQuemRecebe, cartaRecebida, cartaEntregue) {
 }
 
 // Avalia um impostor: trocas feitas, trocas prejudiciais aos colegas, votos e nota
-export function avaliarImpostor(uid, missaoId, alunos, trades, impostores) {
+export function avaliarImpostor(uid, missaoId, alunos, trades, impostores, limiteVotos = VOTOS_PARA_DESCOBRIR_PADRAO) {
   const m = MISSOES[missaoId] || MISSOES.ilusionista;
   const eu = alunos.find((a) => a.uid === uid) || {};
   const minhas = (trades || []).filter((t) => t.status === "aceita" && (t.deUid === uid || t.paraUid === uid));
@@ -60,8 +61,9 @@ export function avaliarImpostor(uid, missaoId, alunos, trades, impostores) {
   const votos = alunos.filter((a) => !impostores.has(a.uid) && a.voto === uid).length;
   const trocas = eu.trocas || 0;
   const cumprida = trocas >= MAX_TROCAS && prejudiciais >= m.meta;
-  const nivel = votos > 0 ? NIVEIS_IMPOSTOR.descoberto : cumprida ? NIVEIS_IMPOSTOR.oculto : NIVEIS_IMPOSTOR.parcial;
-  return { uid, nome: eu.nome || "", missao: m.id, missaoNome: m.nome, meta: m.meta, trocas, prejudiciais, cumprida, votos, descoberto: votos > 0, nivel, nota: nivel.nota };
+  const descoberto = votos >= Math.max(1, limiteVotos);
+  const nivel = descoberto ? NIVEIS_IMPOSTOR.descoberto : cumprida ? NIVEIS_IMPOSTOR.oculto : NIVEIS_IMPOSTOR.parcial;
+  return { uid, nome: eu.nome || "", missao: m.id, missaoNome: m.nome, meta: m.meta, trocas, prejudiciais, cumprida, votos, limiteVotos, descoberto, nivel, nota: nivel.nota };
 }
 
 export const NIVEIS = [
