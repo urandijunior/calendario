@@ -9,7 +9,7 @@
 export const MAX_TROCAS = 8;
 export const TAM_EQUIPE = 6;
 export const CARTAS_GARANTIDAS = 2; // funcionários do próprio ramo que cada aluno já recebe
-export const VALIDADE_PROPOSTA_MS = 60_000; // proposta expira em 1 minuto
+export const VALIDADE_PROPOSTA_MS = 90_000; // proposta expira em 1 minuto e meio
 export const MAX_PROPOSTAS_ABERTAS = 3;
 export const MAX_ALUNOS = 60;
 

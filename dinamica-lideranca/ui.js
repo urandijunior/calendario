@@ -29,7 +29,27 @@ function show(id) {
   window.scrollTo(0, 0);
 }
 $$("[data-back]").forEach((b) => b.addEventListener("click", () => { L.clearListeners(); show(b.dataset.back); }));
-$("#btn-sou-professor").addEventListener("click", () => show("screen-prof-criar"));
+// PIN do professor (vale até fechar o navegador)
+const PIN_PROFESSOR = "1919";
+const PIN_KEY = "lid-prof-pin-ok";
+const pinOk = () => { try { return sessionStorage.getItem(PIN_KEY) === "1"; } catch (e) { return false; } };
+let depoisDoPin = null;
+function exigirPin(acao) {
+  if (pinOk()) return acao();
+  depoisDoPin = acao;
+  $("#input-pin").value = ""; $("#erro-pin").textContent = "";
+  show("screen-prof-pin");
+  setTimeout(() => $("#input-pin").focus(), 50);
+}
+function conferirPin() {
+  if ($("#input-pin").value.trim() !== PIN_PROFESSOR) { $("#erro-pin").textContent = "PIN incorreto."; return; }
+  try { sessionStorage.setItem(PIN_KEY, "1"); } catch (e) {}
+  const acao = depoisDoPin; depoisDoPin = null;
+  (acao || (() => show("screen-prof-criar")))();
+}
+$("#btn-pin").addEventListener("click", conferirPin);
+$("#input-pin").addEventListener("keydown", (e) => { if (e.key === "Enter") conferirPin(); });
+$("#btn-sou-professor").addEventListener("click", () => exigirPin(() => show("screen-prof-criar")));
 $("#btn-sou-aluno").addEventListener("click", () => show("screen-aluno-entrar"));
 
 let toastTimer = null;
@@ -414,7 +434,7 @@ function iniciarSalaAluno(codigo) {
   state.unsubs.push(onSnapshot(query(collection(db, "rooms", codigo, "trades"), where("paraUid", "==", state.uid), where("status", "==", "pendente")), (snap) => {
     recebidas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (recebidas.some((t) => !recebidasIds.has(t.id)) && !primeiraRecebida) {
-      toast("📨 Você recebeu uma proposta de troca! (vale 1 minuto)");
+      toast("📨 Você recebeu uma proposta de troca! (vale 1 minuto e meio)");
       try { navigator.vibrate?.(200); } catch (e) {}
     }
     primeiraRecebida = false;
@@ -453,7 +473,7 @@ $("#btn-encerrar-minha").addEventListener("click", async () => {
   await L.encerrarMinhaNegociacao(state.roomCode, eu.ramo, minhaMao, "voluntario");
 });
 
-// Propostas que perderam o sentido somem sozinhas; as minhas expiram em 1 minuto
+// Propostas que perderam o sentido somem sozinhas; as minhas expiram em 1 minuto e meio
 const jaLimpas = new Set();
 function limparObsoletas() {
   if (!maoCarregada || !state.roomCode) return;
@@ -664,7 +684,7 @@ $("#btn-confirmar-troca").addEventListener("click", async (ev) => {
   try {
     await L.proporTroca(state.roomCode, { uid: mColega, nome: colegas[mColega]?.nome || "" }, mOferta, mPedida, $("#input-argumento").value.trim(), enviadas.filter((t) => !L.expirou(t)).length);
     $("#modal-troca").classList.add("hidden");
-    toast("Proposta enviada! Ela vale por 1 minuto.");
+    toast("Proposta enviada! Ela vale por 1 minuto e meio.");
   } catch (e) { $("#erro-modal-troca").textContent = e.message || "Erro ao propor troca."; ev.target.disabled = false; }
 });
 $("#modal-fechar").addEventListener("click", () => $("#modal-troca").classList.add("hidden"));
@@ -782,7 +802,7 @@ $("#btn-retomar").addEventListener("click", async (ev) => {
   ev.target.disabled = true;
   try {
     await L.garantirLogin();
-    if (s.role === "professor") abrirDashboard(s.roomCode, s.nome);
+    if (s.role === "professor") exigirPin(() => abrirDashboard(s.roomCode, s.nome));
     else await entrarComoAluno(s.roomCode, s.nome, s.ramo);
   } catch (e) { alert(e.message || "Não foi possível voltar para a sala."); }
   finally { ev.target.disabled = false; }
@@ -791,10 +811,11 @@ $("#btn-retomar").addEventListener("click", async (ev) => {
 // ---------------------------------------------------------------------------
 // PROFESSOR: histórico de salas e painel consolidado
 // ---------------------------------------------------------------------------
-let historico = []; // [{ sala, res }]
-$("#btn-ver-historico").addEventListener("click", () => { show("screen-prof-historico"); $("#app").classList.add("largo"); carregarHistorico(); });
+let historico = []; // [{ sala, res, dinamica }]
+$("#btn-ver-historico").addEventListener("click", () => exigirPin(() => { show("screen-prof-historico"); $("#app").classList.add("largo"); carregarHistorico(); }));
 $("#btn-hist-atualizar").addEventListener("click", carregarHistorico);
 $("#filtro-historico").addEventListener("input", renderHistorico);
+$("#filtro-dinamica").addEventListener("change", renderHistorico);
 
 async function carregarHistorico() {
   $("#hist-status").textContent = "Carregando salas...";
@@ -803,29 +824,52 @@ async function carregarHistorico() {
     await L.garantirLogin();
     const salas = await L.listarSalas();
     historico = await Promise.all(salas.map(async (sala) => {
-      if (sala.resultado?.alunos) return { sala, res: { ...sala.resultado, resumo: H.resumir(sala.resultado.alunos), fonte: "salvo" } };
-      const alunos = await L.lerAlunos(sala.codigo).catch(() => []); // sala antiga ou nunca salva: calcula agora
-      return { sala, res: { ...H.montarResultado(alunos, D), fonte: "calculado" } };
+      if (sala.dinamica === "rh") {
+        const [alunos, trades] = await Promise.all([L.lerAlunos(sala.codigo).catch(() => []), L.lerTrades(sala.codigo)]);
+        return { sala, dinamica: "rh", res: H.resultadoRH(sala, alunos, trades) };
+      }
+      if (sala.resultado?.alunos) return { sala, dinamica: "lideranca", res: { ...sala.resultado, resumo: H.resumir(sala.resultado.alunos), fonte: "salvo" } };
+      const alunos = await L.lerAlunos(sala.codigo).catch(() => []); // sala nunca salva: calcula agora
+      return { sala, dinamica: "lideranca", res: { ...H.montarResultado(alunos, D), fonte: "calculado" } };
     }));
-    $("#hist-status").textContent = `${historico.length} sala(s) encontradas.`;
+    // salas vazias (criadas e abandonadas) não poluem o histórico
+    historico = historico.filter((x) => x.res.alunos.length);
+    $("#hist-status").textContent = `${historico.length} sala(s) com alunos.`;
     renderHistorico();
   } catch (e) { $("#hist-status").textContent = "Não foi possível carregar o histórico: " + (e.message || e); }
 }
 function historicoFiltrado() {
   const f = ($("#filtro-historico").value || "").trim().toLowerCase();
-  return historico.filter(({ sala }) => !f || `${sala.turma || ""} ${sala.codigo}`.toLowerCase().includes(f));
+  const din = $("#filtro-dinamica").value;
+  return historico.filter(({ sala, dinamica }) => (!din || dinamica === din) && (!f || `${sala.turma || ""} ${sala.codigo}`.toLowerCase().includes(f)));
 }
+const nomeArq = (item) => `${item.dinamica === "rh" ? "rh" : "lideranca"}-${(item.sala.turma || "sem-turma").replace(/[^\w-]+/g, "_")}-${item.sala.codigo}.csv`;
+const csvItens = (itens) => (itens[0]?.dinamica === "rh" ? H.csvRH(itens) : H.csvDe(itens));
 function renderHistorico() {
   const lista = historicoFiltrado();
   const box = $("#hist-conteudo");
-  box.innerHTML = H.renderConsolidado(lista, D);
+  box.innerHTML = H.renderHistorico(lista, D);
+  const achar = (cod) => historico.find((x) => x.sala.codigo === cod);
   box.querySelectorAll("[data-abrir]").forEach((b) => b.addEventListener("click", () => abrirDashboard(b.dataset.abrir, state.nome || "")));
-  box.querySelectorAll("[data-csv]").forEach((b) => b.addEventListener("click", () => {
-    const item = historico.find((x) => x.sala.codigo === b.dataset.csv);
-    H.baixar(`lideranca-${(item.sala.turma || "").replace(/[^\w-]+/g, "_")}-${item.sala.codigo}.csv`, H.csvDe([item]));
+  box.querySelectorAll("[data-csv]").forEach((b) => b.addEventListener("click", () => { const it = achar(b.dataset.csv); H.baixar(nomeArq(it), csvItens([it])); }));
+  box.querySelectorAll("[data-ver]").forEach((b) => b.addEventListener("click", () => {
+    const det = $("#hist-detalhe");
+    det.innerHTML = H.renderDetalhe(achar(b.dataset.ver));
+    det.querySelector("[data-fechar-detalhe]").addEventListener("click", () => (det.innerHTML = ""));
+    det.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+  box.querySelectorAll("[data-rotular]").forEach((b) => b.addEventListener("click", async () => {
+    const it = achar(b.dataset.rotular);
+    const novo = prompt(`Nome da turma da sala ${it.sala.codigo}:`, it.sala.turma || "");
+    if (novo == null) return;
+    try { await L.rotularSala(it.sala.codigo, novo.trim()); it.sala.turma = novo.trim(); renderHistorico(); toast("Turma atualizada."); }
+    catch (e) { toast("Não foi possível salvar o nome da turma."); }
   }));
 }
 $("#btn-hist-csv").addEventListener("click", () => {
   const lista = historicoFiltrado();
-  if (lista.length) H.baixar(`lideranca-historico-${new Date().toISOString().slice(0, 10)}.csv`, H.csvDe(lista));
+  const dia = new Date().toISOString().slice(0, 10);
+  const lid = lista.filter((x) => x.dinamica === "lideranca"), rh = lista.filter((x) => x.dinamica === "rh");
+  if (lid.length) H.baixar(`historico-lideranca-${dia}.csv`, H.csvDe(lid));
+  if (rh.length) setTimeout(() => H.baixar(`historico-rh-${dia}.csv`, H.csvRH(rh)), 400);
 });

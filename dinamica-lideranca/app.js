@@ -1,7 +1,7 @@
 // app.js — Mercado de Talentos: Liderança (lógica de jogo + Firestore)
 //   - Cada aluno escolhe 1 de 10 ramos ao entrar e recebe 6 funcionários (cartas)
 //   - Trocas 1-por-1 entre alunos; cada troca aceita conta para OS DOIS (máx. 8 por aluno)
-//   - Proposta expira em 1 minuto; pode ser recusada na hora
+//   - Proposta expira em 1 minuto e meio; pode ser recusada na hora
 //   - Ao fechar a equipe ideal (6/6), esgotar as trocas ou acabar o tempo → questionário do líder
 //   - Classificação: 5 perfeitas (1,0) · 8 ideais (0,8) · 3 equilibradas (0,6) · demais 0,5
 
@@ -46,7 +46,7 @@ function garantirLogin() {
   return loginPromise;
 }
 
-// Acerta o relógio do aparelho com o do servidor (a validade de 1 min depende disso)
+// Acerta o relógio do aparelho com o do servidor (a validade da proposta depende disso)
 async function sincronizarRelogio(ref) {
   try {
     const t0 = Date.now();
@@ -123,12 +123,30 @@ const publicarResultado = (roomCode, v = true) => updateDoc(doc(db, "rooms", roo
 // Resultado da sala gravado no próprio documento da sala (foto da classificação e das notas)
 const salvarResultado = (roomCode, resultado) => updateDoc(doc(db, "rooms", roomCode), { resultado, resultadoSalvoEm: serverTimestamp() });
 
-// Histórico: todas as salas desta dinâmica (de qualquer aparelho)
+// Histórico: salas desta dinâmica e da dinâmica de RH (Habilidades e Competências),
+// que usa a mesma coleção "rooms" do projeto "aplicativos" sem o campo "tipo".
+const tempoSala = (r) => r.criadoMs || r.criadoEm?.toMillis?.() || 0;
 async function listarSalas() {
-  const snap = await getDocs(query(collection(db, "rooms"), where("tipo", "==", "lideranca")));
-  return snap.docs.map((d) => ({ codigo: d.id, ...d.data() }))
-    .sort((a, b) => (b.criadoMs || b.criadoEm?.toMillis?.() || 0) - (a.criadoMs || a.criadoEm?.toMillis?.() || 0));
+  let salas;
+  try {
+    const snap = await getDocs(collection(db, "rooms"));
+    salas = snap.docs.map((d) => ({ codigo: d.id, ...d.data() }))
+      .map((r) => ({ ...r, dinamica: r.tipo === "lideranca" ? "lideranca" : r.tipo ? r.tipo : r.professorUid ? "rh" : "outra" }))
+      .filter((r) => r.dinamica === "lideranca" || r.dinamica === "rh");
+  } catch (e) {
+    // se as regras não permitirem listar tudo, mostra ao menos as salas de liderança
+    const snap = await getDocs(query(collection(db, "rooms"), where("tipo", "==", "lideranca")));
+    salas = snap.docs.map((d) => ({ codigo: d.id, ...d.data(), dinamica: "lideranca" }));
+  }
+  return salas.sort((a, b) => tempoSala(b) - tempoSala(a));
 }
+async function lerTrades(roomCode) {
+  try {
+    const snap = await getDocs(collection(db, "rooms", roomCode, "trades"));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  } catch (e) { return null; }
+}
+const rotularSala = (roomCode, turma) => updateDoc(doc(db, "rooms", roomCode), { turma: (turma || "").slice(0, 60) });
 async function lerAlunos(roomCode) {
   const snap = await getDocs(collection(db, "rooms", roomCode, "students"));
   return snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
@@ -231,7 +249,7 @@ async function aceitarTroca(roomCode, tradeId) {
     return "ok";
   });
   const msg = {
-    expirada: "⌛ Essa proposta expirou (passou de 1 minuto).",
+    expirada: "⌛ Essa proposta expirou (passou de 1 minuto e meio).",
     fechou: "Essa proposta perdeu o efeito: um dos dois já encerrou a negociação.",
     semtrocas: "Essa proposta perdeu o efeito: um dos dois já usou as 8 trocas.",
     mudou: "⌛ Essa proposta ficou desatualizada: a carta já mudou de mãos.",
@@ -263,7 +281,7 @@ async function concluirQuestionario(roomCode, aluno, respostas, liderEscolhido, 
 
 window.LID = {
   state, D, agora, expirou, ms, jogoAberto,
-  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarNegociacao, publicarResultado, adicionarTempo, salvarResultado, listarSalas, lerAlunos,
+  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarNegociacao, publicarResultado, adicionarTempo, salvarResultado, listarSalas, lerAlunos, lerTrades, rotularSala,
   entrarNaSala, trocarRamo, salvarRecado, proporTroca, cancelarTroca, recusarTroca, expirarTroca, aceitarTroca,
   encerrarMinhaNegociacao, concluirQuestionario, sincronizarRelogio,
   salvarSessao, lerSessao, limparSessao, clearListeners,

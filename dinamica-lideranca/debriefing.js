@@ -76,7 +76,7 @@ export function montarDebriefing({ room, alunos, trades, D }) {
       <li>${carisma} pessoa(s) escolheram o funcionário mais carismático. Por que o carisma seduz? Popularidade ou resultado?</li>
       <li>O líder escolhido era o que tinha o cargo mais alto? O que o Nível 5 de Collins diz sobre isso?</li>
       <li>Ligue com os casos: na caverna Tham Luang, o governador decidiu cercado de especialistas que sabiam mais do que ele. Qual estilo ele usou?</li>
-      <li>A negociação de 1 minuto pressionou vocês. Que passo de Kotter vocês aplicaram sem perceber (urgência, coalizão, vitórias rápidas)?</li>
+      <li>O prazo de 1 minuto e meio por proposta pressionou vocês. Que passo de Kotter vocês aplicaram sem perceber (urgência, coalizão, vitórias rápidas)?</li>
     </ol>
   </div>
 

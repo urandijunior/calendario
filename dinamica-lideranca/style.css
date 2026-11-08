@@ -458,5 +458,13 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .salvo-info { font-size: 12.5px; color: var(--ok); }
 .historico-filtros { margin-bottom: 8px; }
 .historico-filtros input { flex: 1 1 240px; margin-top: 0; }
-.acoes-sala { white-space: nowrap; }
-.acoes-sala button + button { margin-left: 4px; }
+.acoes-sala { min-width: 96px; }
+.acoes-sala button { display: block; width: 100%; margin: 0 0 4px; padding: 5px 8px; font-size: 12px; }
+
+.din { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.din-lid { background: #efe7f8; color: var(--purple); }
+.din-rh { background: #e6f0f8; color: var(--blue); }
+.editar-turma { margin: 0 0 0 4px; font-size: 13px; }
+.historico-filtros select { width: auto; margin-top: 0; flex: 0 1 260px; }
+.bloco-din h4 { margin: 10px 0 8px; font-size: 14px; color: var(--navy); }
+input[type="password"] { display: block; width: 100%; margin-top: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 22px; letter-spacing: .4em; max-width: 220px; }

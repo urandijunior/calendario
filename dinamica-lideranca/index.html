@@ -38,6 +38,16 @@
     </div>
   </section>
 
+  <!-- PROFESSOR: PIN -->
+  <section id="screen-prof-pin" class="screen">
+    <button class="link-back" data-back="screen-home">&larr; voltar</button>
+    <h1>🔒 Área do professor</h1>
+    <p class="hint">Digite o PIN para criar salas e ver os resultados.</p>
+    <label>PIN <input type="password" id="input-pin" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••" /></label>
+    <button class="btn-primary" id="btn-pin">Entrar</button>
+    <p id="erro-pin" class="erro"></p>
+  </section>
+
   <!-- PROFESSOR: CRIAR -->
   <section id="screen-prof-criar" class="screen">
     <button class="link-back" data-back="screen-home">&larr; voltar</button>
@@ -56,8 +66,13 @@
   <section id="screen-prof-historico" class="screen">
     <button class="link-back" data-back="screen-prof-criar">&larr; voltar</button>
     <h1>📚 Histórico de salas</h1>
-    <p class="hint">Cada sala fica salva com o resultado de todos os alunos. Abra uma sala para ver a classificação e o debriefing, ou baixe as notas.</p>
+    <p class="hint">Salas desta dinâmica e da dinâmica de RH (Habilidades e Competências). Use ✏️ para dar nome de turma às salas antigas e organizar o histórico.</p>
     <div class="row historico-filtros">
+      <select id="filtro-dinamica">
+        <option value="">Todas as dinâmicas</option>
+        <option value="lideranca">🧭 Liderança</option>
+        <option value="rh">🧩 Habilidades e Competências (RH)</option>
+      </select>
       <input type="text" id="filtro-historico" placeholder="🔎 Filtrar por turma ou código" autocomplete="off" />
       <button class="btn-secondary" id="btn-hist-atualizar">Atualizar</button>
       <button class="btn-primary" id="btn-hist-csv">⬇ CSV de todas as salas filtradas</button>
@@ -208,7 +223,7 @@
           <div class="fichas" id="trocas-fichas"></div>
         </div>
       </div>
-      <p class="hint regras">Quanto menos trocas, melhor a sua posição. Cada troca aceita conta para os dois. Proposta não respondida expira em 1 minuto.</p>
+      <p class="hint regras">Quanto menos trocas, melhor a sua posição. Cada troca aceita conta para os dois. Proposta não respondida expira em 1 minuto e meio.</p>
 
       <div class="painel">
         <h2>Propostas <span id="badge-recebidas" class="badge hidden">0</span></h2>
@@ -274,7 +289,7 @@
     <div id="modal-mao-propria" class="mao-cartas mao-selecionavel"></div>
     <h3>3. Seu argumento (opcional)</h3>
     <input type="text" id="input-argumento" maxlength="140" placeholder="Ex.: Essa pessoa cobre a frente de vendas do seu ramo!" />
-    <button class="btn-primary" id="btn-confirmar-troca" disabled>Enviar proposta (vale 1 minuto)</button>
+    <button class="btn-primary" id="btn-confirmar-troca" disabled>Enviar proposta (vale 1 min e meio)</button>
     <p id="erro-modal-troca" class="erro"></p>
   </div>
 </div>
