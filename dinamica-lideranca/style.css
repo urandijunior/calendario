@@ -468,3 +468,22 @@ button:disabled { opacity: .55; cursor: not-allowed; }
 .historico-filtros select { width: auto; margin-top: 0; flex: 0 1 260px; }
 .bloco-din h4 { margin: 10px 0 8px; font-size: 14px; color: var(--navy); }
 input[type="password"] { display: block; width: 100%; margin-top: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 22px; letter-spacing: .4em; max-width: 220px; }
+
+/* impostores */
+.impostor-box { border: 2px solid #1a1a1a; background: #1f1f2b; color: #f1f1f1; }
+.impostor-box h2, .impostor-box .link-toggle { color: #ffd166; }
+.impostor-box p { font-size: 14px; line-height: 1.5; }
+.impostor-box .kpi { background: rgba(255,255,255,.08); }
+.impostor-box .kpi b { color: #ffd166; }
+.impostor-box .kpi span { color: #cfcfe0; }
+.impostor-box.oculto #impostor-conteudo { display: none; }
+.aviso-impostores { background: #f3eefa; border: 1px solid var(--purple); color: #3d2a5c; border-radius: 10px; padding: 10px 14px; font-size: 14px; }
+.dossie { display: block; font-size: 11px; font-weight: 700; padding: 4px 8px; }
+.dossie-alvo { background: #ffd166; color: #1a1a1a; }
+.dossie-isca { background: #2b2b3a; color: #ffd166; }
+.voto-box .opcoes { max-height: 50vh; overflow-y: auto; }
+.imp-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.imp-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: #faf8fd; font-size: 14px; }
+.imp-card b { color: var(--navy); }
+.tag-imp { background: #1f1f2b; }
+.impostor-linha { border-color: #1f1f2b; background: #f1eff6; }

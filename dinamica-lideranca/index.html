@@ -108,8 +108,15 @@
             <option value="0">Sem cronômetro</option>
           </select>
         </label>
+        <label>Impostores
+          <select id="input-impostores">
+            <option value="2" selected>2 impostores (missões diferentes)</option>
+            <option value="1">1 impostor</option>
+            <option value="0">Sem impostores</option>
+          </select>
+        </label>
         <button class="btn-primary" id="btn-iniciar-jogo">Iniciar (distribuir os funcionários)</button>
-        <p class="hint">Só inicie quando todos tiverem entrado e escolhido o ramo: quem chegar depois não recebe cartas.</p>
+        <p class="hint">Só inicie quando todos tiverem entrado e escolhido o ramo: quem chegar depois não recebe cartas. Os impostores são sorteados ao iniciar (mínimo de 6 alunos) e só aparecem no painel quando você tocar em “Mostrar impostores”.</p>
         <div id="dash-ramos-lobby" class="ramos-contagem"></div>
       </div>
 
@@ -141,6 +148,11 @@
           <input type="text" id="input-dica" placeholder="Ou escreva sua própria dica..." />
           <button class="btn-secondary" id="btn-enviar-dica">Enviar</button>
         </div>
+      </div>
+
+      <div class="painel hidden" id="dash-impostores-painel">
+        <div class="painel-head"><h2>🕵️ Impostores</h2><button class="btn-secondary btn-pequeno" id="btn-mostrar-imp">👁 Mostrar impostores (não projete)</button></div>
+        <div id="dash-impostores" class="hidden"></div>
       </div>
 
       <div class="painel">
@@ -208,6 +220,13 @@
     </div>
 
     <div id="aluno-encerrado-banner" class="banner-alerta hidden">⏹ Negociação encerrada: as trocas estão travadas.</div>
+
+    <!-- missão secreta do impostor -->
+    <div id="aluno-impostor" class="painel impostor-box hidden">
+      <div class="painel-head"><h2>🕵️ Missão secreta</h2><button class="link-toggle" id="btn-ocultar-missao">ocultar</button></div>
+      <div id="impostor-conteudo"></div>
+    </div>
+    <p id="aviso-impostores" class="aviso-impostores hidden"></p>
 
     <!-- negociação -->
     <div id="aluno-jogo" class="hidden">

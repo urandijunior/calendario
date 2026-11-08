@@ -13,6 +13,57 @@ export const VALIDADE_PROPOSTA_MS = 90_000; // proposta expira em 1 minuto e mei
 export const MAX_PROPOSTAS_ABERTAS = 3;
 export const MAX_ALUNOS = 60;
 
+// ---------------------------------------------------------------------------
+// Impostores: 2 alunos sorteados no início, com missões diferentes de mesma lógica:
+// fazer as 8 trocas e, em parte delas, prejudicar o colega. Só o impostor e o professor sabem.
+// ---------------------------------------------------------------------------
+export const IMPOSTORES_PADRAO = 2;
+export const MIN_ALUNOS_IMPOSTOR = 6;
+export const MISSOES = {
+  cacador: {
+    id: "cacador", nome: "O Caçador de Talentos", icone: "🎯", meta: 3,
+    texto: "Tire talentos das equipes dos colegas. Faça as suas 8 trocas e, em pelo menos 3 delas, leve um funcionário que fazia parte da equipe ideal do colega.",
+    criterio: "o colega perdeu alguém da equipe ideal dele",
+    dica: "No seu dossiê, ⭐ marca quem é da equipe ideal do dono. Peça essas cartas com bons argumentos.",
+  },
+  ilusionista: {
+    id: "ilusionista", nome: "O Vendedor de Ilusões", icone: "🎩", meta: 5,
+    texto: "Faça os colegas gastarem trocas à toa. Faça as suas 8 trocas e, em pelo menos 5 delas, entregue um funcionário que não serve para a equipe do colega.",
+    criterio: "o colega não ganhou ninguém útil",
+    dica: "No seu dossiê, 🗑 marca as suas cartas que não servem para aquele colega. Venda cada uma como se fosse perfeita.",
+  },
+};
+export const NIVEIS_IMPOSTOR = {
+  oculto: { id: "imp-oculto", nome: "Impostor não descoberto", nota: 1.0, emoji: "🕵️" },
+  parcial: { id: "imp-parcial", nome: "Impostor não descoberto (missão incompleta)", nota: 0.8, emoji: "🕵️" },
+  descoberto: { id: "imp-descoberto", nome: "Impostor descoberto", nota: 0.5, emoji: "🚨" },
+};
+
+// Efeito de uma troca para cada lado (gravado na troca no momento do aceite)
+export function efeitoTroca(ramoQuemRecebe, cartaRecebida, cartaEntregue) {
+  const eq = new Set(RAMO[ramoQuemRecebe]?.idsEquipe || []);
+  return { ganhou: eq.has(funcId(cartaRecebida)), perdeu: eq.has(funcId(cartaEntregue)) };
+}
+
+// Avalia um impostor: trocas feitas, trocas prejudiciais aos colegas, votos e nota
+export function avaliarImpostor(uid, missaoId, alunos, trades, impostores) {
+  const m = MISSOES[missaoId] || MISSOES.ilusionista;
+  const eu = alunos.find((a) => a.uid === uid) || {};
+  const minhas = (trades || []).filter((t) => t.status === "aceita" && (t.deUid === uid || t.paraUid === uid));
+  const contraColegas = minhas.filter((t) => !impostores.has(t.deUid === uid ? t.paraUid : t.deUid));
+  const prejudiciais = contraColegas.filter((t) => {
+    const outro = t.deUid === uid ? t.paraUid : t.deUid;
+    const ef = t.efeito?.[outro];
+    if (!ef) return false;
+    return m.id === "cacador" ? ef.perdeu : !ef.ganhou;
+  }).length;
+  const votos = alunos.filter((a) => !impostores.has(a.uid) && a.voto === uid).length;
+  const trocas = eu.trocas || 0;
+  const cumprida = trocas >= MAX_TROCAS && prejudiciais >= m.meta;
+  const nivel = votos > 0 ? NIVEIS_IMPOSTOR.descoberto : cumprida ? NIVEIS_IMPOSTOR.oculto : NIVEIS_IMPOSTOR.parcial;
+  return { uid, nome: eu.nome || "", missao: m.id, missaoNome: m.nome, meta: m.meta, trocas, prejudiciais, cumprida, votos, descoberto: votos > 0, nivel, nota: nivel.nota };
+}
+
 export const NIVEIS = [
   { id: "perfeita", nome: "Equipe perfeita", nota: 1.0, vagas: 5, emoji: "🏆" },
   { id: "ideal", nome: "Equipe ideal", nota: 0.8, vagas: 8, emoji: "🥈" },
@@ -417,8 +468,10 @@ export function corrigirQuestionario(ramoCod, maoFuncIds, respostas) {
 //     (sobras do topo, depois 6/6 com líder errado, depois quem ficou mais perto: 5/6...).
 //   Demais: 0,5 por participar.
 // ---------------------------------------------------------------------------
-export function classificar(alunos /* [{uid, ...dados do aluno}] */) {
+export function classificar(todos /* [{uid, ...dados do aluno}] */, impostores = new Set(), avalImp = {}) {
   const ms = (t) => (t?.toMillis ? t.toMillis() : typeof t === "number" ? t : Number.MAX_SAFE_INTEGER);
+  // impostores não ocupam vagas da classificação: têm nota própria
+  const alunos = todos.filter((a) => !impostores.has(a.uid));
   const concluiu = alunos.filter((a) => a.fase === "concluido");
   const elegivel = (a) => a.equipeFinal === TAM_EQUIPE && a.liderCerto;
   const ordemTopo = (a, b) => (a.trocas || 0) - (b.trocas || 0) || (b.acertos || 0) - (a.acertos || 0) || ms(a.concluidoEm) - ms(b.concluidoEm);
@@ -434,5 +487,9 @@ export function classificar(alunos /* [{uid, ...dados do aluno}] */) {
   fila.slice(0, 3).forEach((a) => (res[a.uid] = { nivel: NIVEIS[2], pos: ++pos }));
   fila.slice(3).forEach((a) => (res[a.uid] = { nivel: NIVEIS[3], pos: ++pos }));
   alunos.filter((a) => !res[a.uid]).forEach((a) => (res[a.uid] = { nivel: NIVEIS[3], pos: null, pendente: true }));
+  todos.filter((a) => impostores.has(a.uid)).forEach((a) => {
+    const av = avalImp[a.uid];
+    res[a.uid] = { impostor: true, pos: null, nivel: av ? av.nivel : NIVEIS_IMPOSTOR.parcial, aval: av };
+  });
   return res;
 }

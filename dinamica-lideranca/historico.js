@@ -6,8 +6,8 @@ const QIDS = ["q1", "q2", "q3", "q4", "q5", "q6"];
 export const QNOMES = { q1: "Maturidade (Hersey e Blanchard)", q2: "Estilo situacional", q3: "Quem pratica o estilo (Chiavenato)", q4: "Armadilha do carisma (Drucker)", q5: "Nível 5 (Collins)", q6: "Passo de Kotter" };
 
 // Foto do resultado da sala: gravada no documento da sala para não depender de recalcular depois
-export function montarResultado(alunosArr, D) {
-  const c = D.classificar(alunosArr);
+export function montarResultado(alunosArr, D, impostores = new Set(), avalImp = {}) {
+  const c = D.classificar(alunosArr, impostores, avalImp);
   const alunos = alunosArr.map((a) => {
     const r = D.RAMO[a.ramo];
     const qs = a.fase === "concluido" ? D.montarQuestionario(a.ramo, a.maoFinal || []) : [];
@@ -20,13 +20,17 @@ export function montarResultado(alunosArr, D) {
       lider: D.FUNCIONARIOS[a.liderEscolhido]?.nome || null, liderCerto: a.fase === "concluido" ? !!a.liderCerto : null,
       caiuCarisma: a.fase === "concluido" ? a.liderEscolhido === r?.carismaId : null,
       justificativa: a.justificativa || "",
+      papel: x.impostor ? "impostor" : "equipe", missao: x.aval?.missaoNome || null, votosRecebidos: x.aval ? x.aval.votos : alunosArr.filter((b) => !impostores.has(b.uid) && b.voto === a.uid).length,
+      prejudiciais: x.aval ? x.aval.prejudiciais : null, voto: alunosArr.find((b) => b.uid === a.voto)?.nome || (a.voto === "ninguem" ? "ninguém" : null),
       pos: x.pos ?? null, nivel: x.pendente ? "pendente" : x.nivel.id, nivelNome: x.pendente ? "Não concluiu" : x.nivel.nome, nota: x.nivel.nota,
     };
   }).sort((a, b) => (a.pos ?? 999) - (b.pos ?? 999) || a.nome.localeCompare(b.nome));
   return { versao: 1, salvoMs: Date.now(), alunos, resumo: resumir(alunos) };
 }
 
-export function resumir(alunos) {
+export function resumir(todos) {
+  const alunos = todos.filter((a) => a.papel !== "impostor"); // estatísticas da turma sem os impostores
+  const imp = todos.filter((a) => a.papel === "impostor");
   const concl = alunos.filter((a) => a.fase === "concluido");
   const fech = alunos.filter((a) => a.equipeFinal === 6);
   const niveis = {};
@@ -40,14 +44,16 @@ export function resumir(alunos) {
     notaMedia: alunos.length ? alunos.reduce((s, a) => s + (a.nota || 0), 0) / alunos.length : null,
     acertosMedia: concl.length ? concl.reduce((s, a) => s + (a.acertos || 0), 0) / concl.length : null,
     niveis, questoes: q,
+    impostores: imp.length, impostoresDescobertos: imp.filter((a) => a.nivel === "imp-descoberto").length,
+    notaMediaTodos: todos.length ? todos.reduce((s, a) => s + (a.nota || 0), 0) / todos.length : null,
   };
 }
 
 export function csvDe(linhasSalas) {
-  const cab = ["turma", "sala", "data", "posicao", "aluno", "ramo", "equipe_inicial", "equipe_final", "trocas", "motivo_fim", "acertos", ...QIDS, "lider_escolhido", "lider_certo", "caiu_carisma", "nivel", "nota", "justificativa"];
+  const cab = ["turma", "sala", "data", "posicao", "aluno", "papel", "missao_impostor", "trocas_prejudiciais", "votos_recebidos", "votou_em", "ramo", "equipe_inicial", "equipe_final", "trocas", "motivo_fim", "acertos", ...QIDS, "lider_escolhido", "lider_certo", "caiu_carisma", "nivel", "nota", "justificativa"];
   const linhas = [cab];
   linhasSalas.forEach(({ sala, res }) => res.alunos.forEach((a) => linhas.push([
-    sala.turma || "", sala.codigo, dataSala(sala), a.pos ?? "", a.nome, a.ramoNome, a.equipeInicial ?? "", a.equipeFinal ?? "", a.trocas, a.motivoFim || "",
+    sala.turma || "", sala.codigo, dataSala(sala), a.pos ?? "", a.nome, a.papel === "impostor" ? "impostor" : "equipe", a.missao || "", a.prejudiciais ?? "", a.votosRecebidos ?? "", a.voto || "", a.ramoNome, a.equipeInicial ?? "", a.equipeFinal ?? "", a.trocas, a.motivoFim || "",
     a.acertos ?? "", ...QIDS.map((id) => (a.questoes?.[id] == null ? "" : a.questoes[id] ? 1 : 0)),
     a.lider || "", a.liderCerto == null ? "" : a.liderCerto ? "sim" : "não", a.caiuCarisma == null ? "" : a.caiuCarisma ? "sim" : "não",
     a.nivelNome, String(a.nota).replace(".", ","), a.justificativa,
@@ -116,9 +122,9 @@ function linhaSala({ sala, res, dinamica }) {
   const d = DINAMICAS[dinamica];
   const r = res.resumo;
   const resultado = dinamica === "lideranca"
-    ? `${pc(r.fecharam6, r.alunos)}% fecharam 6/6 · ${pc(r.liderCerto, r.concluiram)}% líder certo`
+    ? `${pc(r.fecharam6, r.alunos)}% fecharam 6/6 · ${pc(r.liderCerto, r.concluiram)}% líder certo${r.impostores ? ` · 🕵️ ${r.impostoresDescobertos}/${r.impostores} descobertos` : ""}`
     : `${pc(r.contratados, r.alunos)}% contratados · 💎 ${r.premium}`;
-  const media = dinamica === "lideranca" ? `nota ${n1(r.notaMedia)}` : `salário ${r.salarioMedio == null ? "—" : brl(r.salarioMedio)}`;
+  const media = dinamica === "lideranca" ? `nota ${n1(r.notaMediaTodos ?? r.notaMedia)}` : `salário ${r.salarioMedio == null ? "—" : brl(r.salarioMedio)}`;
   const salvo = res.fonte === "salvo" ? `✅ <small>${new Date(res.salvoMs).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</small>` : "<small>calculado agora</small>";
   return `<tr>
     <td><span class="din ${d.classe}">${d.icone} ${d.nome}</span></td>
@@ -210,6 +216,6 @@ export function renderDetalhe({ sala, res, dinamica }) {
   }
   return `<div class="painel-interno destaque">${cab}<div class="tabela-rolagem"><table class="tabela"><thead><tr><th>#</th><th>Aluno</th><th>Ramo</th><th>Equipe</th><th>Trocas</th><th>Questionário</th><th>Líder</th><th>Nível</th><th>Nota</th></tr></thead><tbody>
     ${res.alunos.map((a) => `<tr class="${a.nivel === "pendente" ? "pendente" : ""}"><td>${a.pos ?? "—"}</td><td>${esc(a.nome)}</td><td>${esc(a.ramoNome)}</td><td>${a.equipeFinal ?? "?"}/6</td><td>${a.trocas}</td><td>${a.acertos == null ? "—" : a.acertos + "/6"}</td>
-      <td>${a.lider ? `${a.liderCerto ? "✅" : "❌"} ${esc(a.lider)}` : "—"}</td><td>${esc(a.nivelNome)}</td><td><b>${n1(a.nota)}</b></td></tr>`).join("")}
+      <td>${a.lider ? `${a.liderCerto ? "✅" : "❌"} ${esc(a.lider)}` : "—"}</td><td>${a.papel === "impostor" ? "🕵️ " : ""}${esc(a.nivelNome)}${a.papel === "impostor" ? ` <small>(${a.votosRecebidos} voto(s), ${a.prejudiciais} trocas prejudiciais)</small>` : ""}</td><td><b>${n1(a.nota)}</b></td></tr>`).join("")}
     </tbody></table></div></div>`;
 }

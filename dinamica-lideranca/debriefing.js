@@ -8,8 +8,9 @@ function barra(rotulo, valor, total, extra = "") {
   return `<div class="db-barra"><span>${rotulo}</span><div class="db-trilho"><div style="width:${p}%"></div></div><b>${p}%</b><small>${valor}/${total}${extra}</small></div>`;
 }
 
-export function montarDebriefing({ room, alunos, trades, D }) {
-  const arr = Object.values(alunos || {});
+export function montarDebriefing({ room, alunos, trades, D, impostores = null, impSet = new Set() }) {
+  const todos = Object.values(alunos || {});
+  const arr = todos.filter((a) => !impSet.has(a.uid)); // estatísticas da turma sem os impostores
   if (!room || room.status === "lobby" || !arr.length) return `<p class="vazio">O debriefing aparece quando a rodada começar.</p>`;
   const concl = arr.filter((a) => a.fase === "concluido");
   const fecharam = arr.filter((a) => (a.equipeFinal ?? 0) === 6);
@@ -20,6 +21,7 @@ export function montarDebriefing({ room, alunos, trades, D }) {
   const carisma = concl.filter((a) => a.liderEscolhido === D.RAMO[a.ramo]?.carismaId).length;
   const esgotou = arr.filter((a) => a.motivoFim === "trocas").length;
   const c = D.classificar(arr);
+  const blocoImp = impostores && impostores.length ? blocoImpostores(impostores, todos, trades, D, impSet) : "";
   const niveis = D.NIVEIS.map((n) => `${n.emoji} ${n.nome}: <b>${Object.values(c).filter((x) => !x.pendente && x.nivel.id === n.id).length}</b>`).join(" · ");
 
   // acerto por questão
@@ -80,6 +82,39 @@ export function montarDebriefing({ room, alunos, trades, D }) {
     </ol>
   </div>
 
+  ${blocoImp}
   ${justs ? `<div class="painel-interno"><h3>Por que escolheram esse líder</h3><ul class="argumentos">${justs}</ul></div>` : ""}
   ${argumentos ? `<div class="painel-interno"><h3>Argumentos que fecharam trocas</h3><ul class="argumentos">${argumentos}</ul></div>` : ""}`;
+}
+
+function blocoImpostores(imps, todos, trades, D, impSet) {
+  const votantes = todos.filter((a) => !impSet.has(a.uid) && a.voto);
+  const acertaram = votantes.filter((a) => impSet.has(a.voto)).length;
+  const semSuspeito = votantes.filter((a) => a.voto === "ninguem").length;
+  const contagem = {};
+  votantes.forEach((a) => { if (a.voto !== "ninguem") contagem[a.voto] = (contagem[a.voto] || 0) + 1; });
+  const maisVotados = Object.entries(contagem).sort((a, b) => b[1] - a[1]).slice(0, 6)
+    .map(([u, n]) => `<li>${impSet.has(u) ? "🕵️" : "😇"} <b>${esc(todos.find((a) => a.uid === u)?.nome || "?")}</b>: ${n} voto(s)</li>`).join("");
+  const vitimas = new Set();
+  (trades || []).filter((t) => t.status === "aceita").forEach((t) => {
+    [[t.deUid, t.paraUid], [t.paraUid, t.deUid]].forEach(([i, o]) => { if (impSet.has(i) && !impSet.has(o)) vitimas.add(o); });
+  });
+  return `<div class="painel-interno destaque">
+    <h3>🕵️ Impostores</h3>
+    <div class="imp-cards">${imps.map((x) => {
+      const m = D.MISSOES[x.missao];
+      return `<div class="imp-card"><b>${m.icone} ${esc(x.nome)}</b> · ${esc(m.nome)}<br />${x.trocas}/${D.MAX_TROCAS} trocas · ${x.prejudiciais}/${m.meta} prejudiciais · ${x.votos} voto(s)<br />${x.nivel.emoji} ${esc(x.nivel.nome)} · nota ${String(x.nota.toFixed(1)).replace(".", ",")}</div>`;
+    }).join("")}</div>
+    <div class="kpis" style="margin-top:10px">
+      <div class="kpi"><b>${vitimas.size}</b><span>colegas negociaram com um impostor</span></div>
+      <div class="kpi"><b>${pct(acertaram, votantes.length)}%</b><span>votaram num impostor (${acertaram}/${votantes.length})</span></div>
+      <div class="kpi"><b>${semSuspeito}</b><span>não apontaram suspeito</span></div>
+    </div>
+    ${maisVotados ? `<h4>Mais votados</h4><ul class="argumentos">${maisVotados}</ul>` : ""}
+    <ol class="perguntas">
+      <li>Que sinais denunciaram (ou não) os impostores? Argumentos bonitos demais, pressa, insistência?</li>
+      <li>Drucker: confiança nasce da coerência. Como vocês decidiam em quem confiar sem ver as cartas certas?</li>
+      <li>Quem foi votado sem ser impostor: o que no seu comportamento gerou desconfiança? O que isso ensina sobre a reputação de um líder?</li>
+    </ol>
+  </div>`;
 }

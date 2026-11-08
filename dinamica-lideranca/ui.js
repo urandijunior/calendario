@@ -107,7 +107,7 @@ function ramosGrid(container, selecionado, onPick) {
   }));
 }
 
-function cartaEl(cardId, { selecionavel = false, onClick = null, nova = false, repetida = false, compacta = false } = {}) {
+function cartaEl(cardId, { selecionavel = false, onClick = null, nova = false, repetida = false, compacta = false, marca = null } = {}) {
   const p = F(cardId);
   const el = document.createElement("div");
   if (!p) return el;
@@ -119,7 +119,8 @@ function cartaEl(cardId, { selecionavel = false, onClick = null, nova = false, r
       <div><span class="tag tag-C">Competência</span> ${esc(p.comp)}</div>
       ${compacta ? "" : `<div class="carta-lidera"><span class="tag tag-L">Quando lidera</span> ${esc(p.lidera)}</div>`}
     </div>
-    ${repetida ? `<div class="carta-repetida">🔁 repetida: ofereça em troca</div>` : ""}`;
+    ${repetida ? `<div class="carta-repetida">🔁 repetida: ofereça em troca</div>` : ""}
+    ${marca ? marca(cardId) : ""}`;
   if (onClick) el.addEventListener("click", () => onClick(cardId, el));
   return el;
 }
@@ -136,8 +137,8 @@ function renderMao(container, cardIds, opts = {}) {
   });
 }
 
-function quadroNiveis(alunosArr) {
-  const c = D.classificar(alunosArr);
+function quadroNiveis(alunosArr, impostores = new Set()) {
+  const c = D.classificar(alunosArr, impostores);
   const cont = {};
   Object.values(c).forEach((x) => { if (!x.pendente) cont[x.nivel.id] = (cont[x.nivel.id] || 0) + 1; });
   return D.NIVEIS.map((n) => `<div class="nivel nivel-${n.id}"><span>${n.emoji} ${n.nome}</span><b>${fmtNota(n.nota)}</b>
@@ -169,6 +170,8 @@ function abrirDashboard(codigo, nome) {
 let proxCache = {}; // uid → proximidade atual (calculada pelas cartas, só no painel)
 let cardsUnsub = null;
 let alunosProf = {};
+let papeisProf = {}; // uid → { papel, missao } (só o professor lê todos)
+let mostrarImp = false;
 let tradesProf = [];
 let debriefTimer = null;
 function agendarDebriefing() {
@@ -177,7 +180,8 @@ function agendarDebriefing() {
   debriefTimer = setTimeout(renderDebriefing, 1200);
 }
 function renderDebriefing() {
-  $("#debriefing-conteudo").innerHTML = montarDebriefing({ room: sala, alunos: alunosProf, trades: tradesProf, D });
+  $("#debriefing-conteudo").innerHTML = montarDebriefing({ room: sala, alunos: alunosProf, trades: tradesProf, D,
+    impostores: verImpostores() ? Object.values(avalImpProf()) : null, impSet: verImpostores() ? impSetProf() : new Set() });
 }
 $$(".aba").forEach((b) => b.addEventListener("click", () => {
   $$(".aba").forEach((x) => x.classList.toggle("ativa", x === b));
@@ -189,7 +193,8 @@ const STATUS_TXT = { lobby: "aguardando", jogando: "em jogo", finalizado: "negoc
 
 function iniciarDashboard(codigo) {
   L.clearListeners();
-  alunosProf = {}; tradesProf = []; ultimoSalvo = ""; statusVisto = null;
+  alunosProf = {}; tradesProf = []; ultimoSalvo = ""; statusVisto = null; papeisProf = {}; mostrarImp = false;
+  $("#dash-impostores").classList.add("hidden"); $("#btn-mostrar-imp").textContent = "👁 Mostrar impostores (não projete)";
   L.sincronizarRelogio(doc(db, "rooms", codigo));
   state.unsubs.push(onSnapshot(doc(db, "rooms", codigo), (snap) => {
     const r = snap.data(); if (!r) return;
@@ -214,15 +219,48 @@ function iniciarDashboard(codigo) {
   state.unsubs.push(onSnapshot(collection(db, "rooms", codigo, "students"), (snap) => {
     alunosProf = {};
     snap.forEach((d) => (alunosProf[d.id] = { uid: d.id, ...d.data() }));
-    renderListaProf(); agendarDebriefing(); agendarSalvamento();
+    renderListaProf(); agendarDebriefing(); agendarSalvamento(); renderImpostoresProf();
   }));
   state.unsubs.push(onSnapshot(collection(db, "rooms", codigo, "trades"), (snap) => {
     tradesProf = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     $("#dash-trocas").textContent = tradesProf.filter((t) => t.status === "aceita").length;
-    agendarDebriefing();
+    agendarDebriefing(); renderImpostoresProf(); agendarSalvamento();
   }, () => ($("#dash-trocas").textContent = "—")));
+  state.unsubs.push(onSnapshot(collection(db, "rooms", codigo, "papeis"), (snap) => {
+    papeisProf = {};
+    snap.forEach((d) => (papeisProf[d.id] = d.data()));
+    renderListaProf(); renderImpostoresProf(); agendarSalvamento();
+  }, () => {}));
   observarCartasProf(codigo);
 }
+
+// Impostores (professor)
+const impSetProf = () => new Set(Object.entries(papeisProf).filter(([, p]) => p.papel === "impostor").map(([u]) => u));
+function avalImpProf() {
+  const set = impSetProf();
+  const arr = Object.values(alunosProf);
+  return Object.fromEntries([...set].map((u) => [u, D.avaliarImpostor(u, papeisProf[u].missao, arr, tradesProf, set)]));
+}
+function renderImpostoresProf() {
+  const set = impSetProf();
+  $("#dash-impostores-painel").classList.toggle("hidden", !sala || sala.status === "lobby" || !set.size);
+  if (!mostrarImp) return;
+  const av = avalImpProf();
+  $("#dash-impostores").innerHTML = `<div class="imp-cards">${Object.values(av).map((x) => {
+    const m = D.MISSOES[x.missao];
+    return `<div class="imp-card"><b>${m.icone} ${esc(x.nome)}</b> · ${esc(m.nome)}<br />
+      Trocas: <b>${x.trocas}/${D.MAX_TROCAS}</b> · prejudiciais: <b>${x.prejudiciais}/${m.meta}</b> <small>(${esc(m.criterio)})</small><br />
+      Votos recebidos: <b>${x.votos}</b> · ${x.cumprida ? "✅ missão cumprida" : alunosProf[x.uid]?.fase === "negociando" && sala?.status === "jogando" ? "⏳ missão em andamento" : "❌ missão não cumprida"}<br />
+      Nota prevista: <b>${fmtNota(x.nota)}</b> · ${x.nivel.emoji} ${esc(x.nivel.nome)}</div>`;
+  }).join("")}</div>
+  <p class="hint" style="margin-top:8px">Os impostores não ocupam vagas da classificação. Ao publicar o resultado, eles são revelados para a turma.</p>`;
+}
+$("#btn-mostrar-imp").addEventListener("click", () => {
+  mostrarImp = !mostrarImp;
+  $("#dash-impostores").classList.toggle("hidden", !mostrarImp);
+  $("#btn-mostrar-imp").textContent = mostrarImp ? "🙈 Esconder impostores" : "👁 Mostrar impostores (não projete)";
+  renderImpostoresProf(); renderListaProf(); agendarDebriefing();
+});
 
 // Salvamento automático: com o painel aberto, a foto do resultado é regravada na sala
 // alguns segundos depois de cada mudança dos alunos (e na hora de encerrar e publicar).
@@ -235,16 +273,18 @@ function agendarSalvamento(imediato = false) {
 async function salvarAgora() {
   const arr = Object.values(alunosProf);
   if (!arr.length) return;
-  const res = H.montarResultado(arr, D);
+  const res = H.montarResultado(arr, D, impSetProf(), avalImpProf());
   const chave = JSON.stringify(res.alunos);
   if (chave === ultimoSalvo) return;
   try { await L.salvarResultado(state.roomCode, res); ultimoSalvo = chave; }
   catch (e) { $("#dash-salvo").textContent = "⚠️ não foi possível salvar o resultado agora; nova tentativa em instantes"; setTimeout(() => agendarSalvamento(), 10000); }
 }
 
-function linhasNotas() {
+// Com os impostores escondidos (painel projetado), a tabela trata todos como jogadores comuns
+const verImpostores = () => mostrarImp || !!sala?.resultadoPublicado;
+function linhasNotas(real = verImpostores()) {
   const arr = Object.values(alunosProf);
-  const c = D.classificar(arr);
+  const c = real ? D.classificar(arr, impSetProf(), avalImpProf()) : D.classificar(arr);
   return arr.map((a) => ({ a, c: c[a.uid] })).sort((x, y) =>
     (x.c.pos ?? 999) - (y.c.pos ?? 999) || (y.a.equipeFinal ?? proxCache[y.a.uid] ?? 0) - (x.a.equipeFinal ?? proxCache[x.a.uid] ?? 0) || x.a.nome.localeCompare(y.a.nome));
 }
@@ -270,8 +310,11 @@ function renderListaProf() {
   $("#bar-lid").style.width = `${(n.lider / tot) * 100}%`;
   $("#bar-ok").style.width = `${(n.concluido / tot) * 100}%`;
   $("#dash-titulo-lista").textContent = "🏁 Classificação ao vivo";
-  $("#dash-niveis").innerHTML = quadroNiveis(arr);
-  box.innerHTML = `<table class="tabela"><thead><tr><th>#</th><th>Aluno</th><th>Ramo</th><th>Equipe</th><th>Trocas</th><th>Fase</th><th>Questionário</th><th>Líder</th><th>Nível</th><th>Nota</th></tr></thead><tbody>
+  $("#dash-niveis").innerHTML = verImpostores() ? quadroNiveis(arr, impSetProf()) : quadroNiveis(arr);
+  const real = verImpostores();
+  const votos = {};
+  arr.forEach((a) => { if (a.voto && a.voto !== "ninguem" && !impSetProf().has(a.uid)) votos[a.voto] = (votos[a.voto] || 0) + 1; });
+  box.innerHTML = `<table class="tabela"><thead><tr><th>#</th><th>Aluno</th><th>Ramo</th><th>Equipe</th><th>Trocas</th><th>Fase</th><th>Questionário</th><th>Líder</th>${real ? "<th>Votos</th>" : ""}<th>Nível</th><th>Nota</th></tr></thead><tbody>
     ${linhasNotas().map(({ a, c }) => {
       const r = D.RAMO[a.ramo];
       const eq = a.equipeFinal ?? proxCache[a.uid];
@@ -280,7 +323,8 @@ function renderListaProf() {
         <td>${eq ?? "?"}/6</td><td>${a.trocas || 0}/${D.MAX_TROCAS}</td><td>${FASE_TXT[a.fase] || a.fase}</td>
         <td>${a.fase === "concluido" ? `${a.acertos}/6` : "—"}</td>
         <td>${a.fase === "concluido" ? (a.liderCerto ? "✅ " : "❌ ") + esc(D.FUNCIONARIOS[a.liderEscolhido]?.nome || "") : "—"}</td>
-        <td>${c.pendente ? "<small>em andamento</small>" : `${c.nivel.emoji} ${c.nivel.nome}`}</td><td><b>${fmtNota(c.nivel.nota)}</b></td></tr>`;
+        ${real ? `<td>${votos[a.uid] || 0}</td>` : ""}
+        <td>${c.impostor ? `<span class="tag tag-imp">🕵️ impostor</span> ${esc(c.nivel.nome)}` : c.pendente ? "<small>em andamento</small>" : `${c.nivel.emoji} ${c.nivel.nome}`}</td><td><b>${fmtNota(c.nivel.nota)}</b></td></tr>`;
     }).join("")}</tbody></table>`;
 }
 
@@ -301,7 +345,7 @@ $("#btn-iniciar-jogo").addEventListener("click", async (ev) => {
   const semRamo = Object.values(alunosProf).filter((a) => !D.RAMO[a.ramo]).length;
   if (semRamo) { $("#erro-dashboard").textContent = `${semRamo} aluno(s) sem ramo escolhido.`; return; }
   ev.target.disabled = true;
-  try { await L.iniciarJogo(state.roomCode, $("#input-duracao").value); }
+  try { await L.iniciarJogo(state.roomCode, $("#input-duracao").value, $("#input-impostores").value); }
   catch (e) { $("#erro-dashboard").textContent = e.message || "Erro ao iniciar."; }
   finally { ev.target.disabled = false; }
 });
@@ -309,14 +353,20 @@ $("#btn-encerrar-jogo").addEventListener("click", async () => {
   if (!confirm("Encerrar a negociação? As trocas ficam travadas e quem ainda negocia vai direto para a escolha do líder.")) return;
   await L.encerrarNegociacao(state.roomCode);
 });
-$("#btn-publicar").addEventListener("click", async () => { await salvarAgora(); await L.publicarResultado(state.roomCode, !sala?.resultadoPublicado); });
+$("#btn-publicar").addEventListener("click", async () => {
+  const publicar = !sala?.resultadoPublicado;
+  if (publicar && impSetProf().size && !confirm("Publicar revela os impostores para a turma. Confirme que todos já votaram.")) return;
+  await salvarAgora();
+  const revelados = Object.values(avalImpProf()).map((x) => ({ uid: x.uid, nome: x.nome, missao: x.missao, trocas: x.trocas, prejudiciais: x.prejudiciais, meta: x.meta, cumprida: x.cumprida, votos: x.votos, nota: x.nota, nivelId: x.nivel.id }));
+  await L.publicarResultado(state.roomCode, publicar, revelados);
+});
 $("#btn-mais-tempo").addEventListener("click", () => L.adicionarTempo(state.roomCode, 2, sala?.fimEm));
 async function enviarDica(t) { if (!t) return; await L.enviarDica(state.roomCode, t); toast("Dica enviada para a turma."); }
 $("#btn-enviar-dica").addEventListener("click", () => enviarDica($("#input-dica").value.trim()));
 $$(".chip[data-dica]").forEach((b) => b.addEventListener("click", () => enviarDica(b.dataset.dica)));
 
 $("#btn-csv").addEventListener("click", () => {
-  const res = H.montarResultado(Object.values(alunosProf), D);
+  const res = H.montarResultado(Object.values(alunosProf), D, impSetProf(), avalImpProf());
   H.baixar(`lideranca-${(sala?.turma || "").replace(/[^\w-]+/g, "_")}-${state.roomCode}.csv`, H.csvDe([{ sala: { ...sala, codigo: state.roomCode }, res }]));
 });
 
@@ -382,6 +432,11 @@ let ultimaDica = "";
 let encerrandoMinha = false;
 let proxAnterior = null;
 let ultimaFaseTela = null;
+let meuPapel = null, buscandoPapel = false; // { papel: "equipe" | "impostor", missao }
+let aceitasDe = [], aceitasPara = [];
+let missaoOculta = false;
+const souImpostor = () => meuPapel?.papel === "impostor";
+const reveladosSet = () => new Set((sala?.impostoresRevelados || []).map((x) => x.uid));
 
 const minhaProx = () => (eu ? D.proximidade(eu.ramo, minhaMao) : 0);
 const negociando = () => eu?.fase === "negociando";
@@ -392,6 +447,8 @@ function iniciarSalaAluno(codigo) {
   eu = null; colegas = {}; cartas = {}; minhaMao = []; maoCarregada = false;
   recebidas = []; enviadas = []; recebidasIds = new Set(); primeiraRecebida = true; ultimaDica = ""; proxAnterior = null; ultimaFaseTela = null;
   quiz = null; quizNaTela = false;
+  meuPapel = null; buscandoPapel = false; aceitasDe = []; aceitasPara = []; missaoOculta = false; votoChave = null;
+  $("#aluno-resultado").innerHTML = "";
   $("#aluno-dica").classList.add("hidden");
 
   state.unsubs.push(onSnapshot(doc(db, "rooms", codigo), (snap) => {
@@ -446,13 +503,84 @@ function iniciarSalaAluno(codigo) {
     enviadas = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     renderPropostas(); limparObsoletas();
   }));
+
+  // trocas aceitas em que participei (progresso da missão do impostor)
+  state.unsubs.push(onSnapshot(query(collection(db, "rooms", codigo, "trades"), where("deUid", "==", state.uid), where("status", "==", "aceita")), (snap) => {
+    aceitasDe = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderImpostor();
+  }));
+  state.unsubs.push(onSnapshot(query(collection(db, "rooms", codigo, "trades"), where("paraUid", "==", state.uid), where("status", "==", "aceita")), (snap) => {
+    aceitasPara = snap.docs.map((d) => ({ id: d.id, ...d.data() })); renderImpostor();
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// ALUNO: impostor (missão secreta, só aparece no aparelho dele)
+// ---------------------------------------------------------------------------
+function buscarPapel() {
+  if (meuPapel || buscandoPapel || !sala || sala.status === "lobby") return;
+  buscandoPapel = true;
+  L.lerMeuPapel(state.roomCode).then((p) => {
+    meuPapel = p;
+    if (souImpostor()) { toast("🕵️ Você foi sorteado(a) IMPOSTOR. Leia sua missão secreta e não conte a ninguém.", 6000); try { navigator.vibrate?.([200, 100, 200]); } catch (e) {} }
+    renderTudo();
+  }).catch(() => {}).finally(() => (buscandoPapel = false));
+}
+function progressoMissao() {
+  const m = D.MISSOES[meuPapel.missao];
+  const aceitas = [...aceitasDe, ...aceitasPara];
+  const prejudiciais = aceitas.filter((t) => {
+    const outro = t.deUid === state.uid ? t.paraUid : t.deUid;
+    const ef = t.efeito?.[outro];
+    return ef && (m.id === "cacador" ? ef.perdeu : !ef.ganhou);
+  }).length;
+  return { m, trocas: eu?.trocas || 0, prejudiciais };
+}
+function dicaImpostorProposta(t) {
+  const m = D.MISSOES[meuPapel.missao];
+  const ef = D.efeitoTroca(colegas[t.deUid]?.ramo, t.cartaPedidaId, t.cartaOferecidaId); // efeito para quem propôs
+  const conta = m.id === "cacador" ? ef.perdeu : !ef.ganhou;
+  return `<span class="dossie ${conta ? "dossie-alvo" : "dossie-isca"}">${conta ? "🕵️ conta para a sua missão" : "🕵️ não conta como prejudicial (mas soma nas 8 trocas)"}</span>`;
+}
+function renderImpostor() {
+  const box = $("#aluno-impostor");
+  const mostra = souImpostor() && !sala?.resultadoPublicado;
+  box.classList.toggle("hidden", !mostra);
+  if (!mostra || !eu) return;
+  box.classList.toggle("oculto", missaoOculta);
+  $("#btn-ocultar-missao").textContent = missaoOculta ? "mostrar" : "ocultar";
+  const { m, trocas, prejudiciais } = progressoMissao();
+  $("#impostor-conteudo").innerHTML = `
+    <p><b>${m.icone} ${esc(m.nome)}</b><br />${esc(m.texto)}</p>
+    <div class="kpis">
+      <div class="kpi"><b>${trocas}/${D.MAX_TROCAS}</b><span>trocas realizadas</span></div>
+      <div class="kpi"><b>${prejudiciais}/${m.meta}</b><span>trocas em que ${esc(m.criterio)}</span></div>
+    </div>
+    <p>🗂️ <b>Seu dossiê:</b> ${esc(m.dica)}</p>
+    <p>🤫 Ninguém sabe que você é impostor. Escolha um ramo de fachada, negocie normalmente, responda ao questionário e vote como todo mundo.</p>
+    <p><b>Sua nota:</b> nenhum voto e missão cumprida = 1,0 · nenhum voto e missão incompleta = 0,8 · se receber pelo menos 1 voto, foi descoberto(a) = 0,5.</p>`;
+}
+$("#btn-ocultar-missao").addEventListener("click", () => { missaoOculta = !missaoOculta; renderImpostor(); });
+
+// Marcações do dossiê (só para o impostor): ⭐ carta da equipe ideal do dono · 🗑 minha carta inútil para aquele colega
+function dossieMarca(cardId, donoUid, alvoUid) {
+  if (!souImpostor()) return "";
+  const p = F(cardId);
+  if (donoUid && donoUid !== state.uid) {
+    const eq = D.RAMO[colegas[donoUid]?.ramo]?.idsEquipe || [];
+    return eq.includes(p.id) ? `<span class="dossie dossie-alvo">⭐ da equipe ideal de ${esc(colegas[donoUid].nome.split(" ")[0])}</span>` : "";
+  }
+  if (alvoUid) {
+    const eq = D.RAMO[colegas[alvoUid]?.ramo]?.idsEquipe || [];
+    return eq.includes(p.id) ? "" : `<span class="dossie dossie-isca">🗑 não serve para ${esc(colegas[alvoUid].nome.split(" ")[0])}</span>`;
+  }
+  return "";
 }
 
 // Avança de fase sozinho: equipe completa, trocas esgotadas ou tempo encerrado
 function avaliarFase() {
   if (!eu || !sala || !negociando() || !maoCarregada || encerrandoMinha) return;
   let motivo = null;
-  if (minhaProx() === D.TAM_EQUIPE) motivo = "completa";
+  if (minhaProx() === D.TAM_EQUIPE && !souImpostor()) motivo = "completa";
   else if ((eu.trocas || 0) >= D.MAX_TROCAS) motivo = "trocas";
   else if (sala.status !== "lobby" && !L.jogoAberto(sala)) motivo = "tempo";
   if (!motivo) return;
@@ -527,6 +655,11 @@ function renderTudo() {
   const faseTela = lobby ? "lobby" : eu.fase;
   if (faseTela !== ultimaFaseTela) { $("#cenario-box").open = faseTela === "lobby"; ultimaFaseTela = faseTela; }
 
+  buscarPapel();
+  renderImpostor();
+  const nImp = sala?.numImpostores || 0;
+  $("#aviso-impostores").classList.toggle("hidden", lobby || !nImp || !!sala?.resultadoPublicado);
+  $("#aviso-impostores").textContent = `🕵️ Atenção: há ${nImp} impostor${nImp > 1 ? "es" : ""} na sala, tentando fazer você gastar trocas à toa ou tirar gente da sua equipe. Ao terminar, você vota em quem acha que é impostor.`;
   if (lobby) renderEspera();
   if (negociando()) { renderPlacar(); renderMural(); renderPropostas(); }
   if (eu.fase === "lider" && !quizNaTela) { quizNaTela = true; renderQuiz(); }
@@ -579,7 +712,7 @@ function renderMural() {
   disp.slice(0, 120).forEach((x) => {
     const row = document.createElement("div");
     row.className = "mural-item";
-    row.innerHTML = `<div><b>${esc(x.p.nome)}</b> · ${esc(x.p.cargo)}<br /><small><span class="tag tag-H">H</span> ${esc(x.p.hab)}</small><br /><small class="mural-dono">com ${esc(colegas[x.dono].nome)} · ${D.MAX_TROCAS - (colegas[x.dono].trocas || 0)} trocas restantes</small></div>
+    row.innerHTML = `<div><b>${esc(x.p.nome)}</b> · ${esc(x.p.cargo)}<br /><small><span class="tag tag-H">H</span> ${esc(x.p.hab)}</small><br /><small class="mural-dono">com ${esc(colegas[x.dono].nome)} · ${D.MAX_TROCAS - (colegas[x.dono].trocas || 0)} trocas restantes</small>${dossieMarca(x.id, x.dono)}</div>
       <button class="btn-secondary btn-pequeno" ${travado ? "disabled" : ""}>Pedir</button>`;
     row.querySelector("button").addEventListener("click", () => abrirModal(x.dono, x.id));
     box.appendChild(row);
@@ -614,6 +747,7 @@ function renderPropostas() {
       <div>oferece: <b>${esc(of?.nome)}</b> · ${esc(of?.cargo)}</div>
       <div>e pede o(a) seu(sua): <b>${esc(pe?.nome)}</b> · ${esc(pe?.cargo)}</div>
       ${t.argumento ? `<div class="argumento">💬 “${esc(t.argumento)}”</div>` : ""}
+      ${souImpostor() ? dicaImpostorProposta(t) : ""}
       <div class="troca-acoes">
         <button class="btn-primary" data-a ${travado ? "disabled" : ""}>Aceitar (gasta 1 troca)</button>
         <button class="btn-secondary" data-r>Recusar</button>
@@ -645,18 +779,59 @@ function renderPropostas() {
 
 function renderRanking() {
   const arr = Object.values(colegas);
-  $("#aluno-niveis").innerHTML = quadroNiveis(arr);
-  const c = D.classificar(arr);
-  const concl = arr.filter((a) => !c[a.uid].pendente).sort((a, b) => c[a.uid].pos - c[b.uid].pos);
-  const andamento = arr.filter((a) => c[a.uid].pendente).sort((a, b) => (b.trocas || 0) - (a.trocas || 0));
-  const linha = (a) => {
-    const x = c[a.uid];
-    const meu = a.uid === state.uid;
-    return `<div class="aluno-item${meu ? " eu" : ""}${x.pendente ? "" : " completo"}">
-      <span>${x.pos ? `${x.pos}º` : "—"} ${esc(a.nome)}${meu ? " (você)" : ""}</span>
-      <span class="status-ok">${x.pendente ? `${FASE_TXT[a.fase] || ""} · ${a.trocas || 0} trocas` : `${x.nivel.emoji} ${x.nivel.nome} · ${a.trocas || 0} trocas`}</span></div>`;
-  };
-  $("#aluno-ranking").innerHTML = concl.map(linha).join("") + andamento.map(linha).join("");
+  const publicado = !!sala?.resultadoPublicado;
+  if (!publicado) {
+    // antes da publicação: sem posições nem níveis (os impostores ainda estão escondidos)
+    $("#aluno-niveis").innerHTML = D.NIVEIS.map((n) => `<div class="nivel nivel-${n.id}"><span>${n.emoji} ${n.nome}</span><b>${fmtNota(n.nota)}</b><small>${n.vagas === Infinity ? "demais alunos" : `${n.vagas} vagas`}</small></div>`).join("");
+    const ordem = { concluido: 0, lider: 1, negociando: 2 };
+    $("#aluno-ranking").innerHTML = [...arr].sort((x, y) => (ordem[x.fase] ?? 3) - (ordem[y.fase] ?? 3) || (x.trocas || 0) - (y.trocas || 0)).map((a) => {
+      const meu = a.uid === state.uid;
+      return `<div class="aluno-item${meu ? " eu" : ""}${a.fase === "concluido" ? " completo" : ""}"><span>${esc(a.nome)}${meu ? " (você)" : ""}</span><span class="status-ok">${FASE_TXT[a.fase] || ""} · ${a.trocas || 0} trocas</span></div>`;
+    }).join("") + `<p class="hint" style="margin-top:8px">Posições e notas aparecem quando o(a) professor(a) publicar o resultado. Impostores não ocupam vagas.</p>`;
+    return;
+  }
+  const set = reveladosSet();
+  const avals = Object.fromEntries((sala.impostoresRevelados || []).map((x) => [x.uid, { ...x, nivel: Object.values(D.NIVEIS_IMPOSTOR).find((n) => n.id === x.nivelId) }]));
+  $("#aluno-niveis").innerHTML = quadroNiveis(arr, set);
+  const c = D.classificar(arr, set, avals);
+  const lista = [...arr].sort((x, y) => (c[x.uid].impostor ? -1 : 0) - (c[y.uid].impostor ? -1 : 0) || (c[x.uid].pos ?? 999) - (c[y.uid].pos ?? 999));
+  $("#aluno-ranking").innerHTML = lista.map((a) => {
+    const x = c[a.uid], meu = a.uid === state.uid;
+    const dir = x.impostor ? `${x.nivel.emoji} ${x.nivel.nome} · ${x.aval?.votos ?? 0} voto(s)` : x.pendente ? "não concluiu" : `${x.nivel.emoji} ${x.nivel.nome} · ${a.trocas || 0} trocas`;
+    return `<div class="aluno-item${meu ? " eu" : ""}${x.impostor ? " impostor-linha" : x.pendente ? "" : " completo"}"><span>${x.impostor ? "🕵️" : x.pos ? `${x.pos}º` : "—"} ${esc(a.nome)}${meu ? " (você)" : ""}</span><span class="status-ok">${dir}</span></div>`;
+  }).join("");
+}
+
+// Votação: cada aluno aponta 1 suspeito ao terminar (pode mudar até o professor publicar)
+let votoChave = null;
+function renderVoto(box) {
+  const nImp = sala?.numImpostores || 0;
+  if (!nImp) { box.innerHTML = ""; votoChave = null; return; }
+  const publicado = !!sala?.resultadoPublicado;
+  const chave = `${eu.voto || ""}|${publicado}|${Object.keys(colegas).length}`;
+  if (chave === votoChave && box.innerHTML) return; // não redesenha enquanto o aluno escolhe
+  votoChave = chave;
+  const nome = (u) => (u === "ninguem" ? "ninguém (sem suspeito)" : colegas[u]?.nome || "?");
+  if (publicado) { box.innerHTML = eu.voto ? `<div class="painel"><p>🗳️ Seu voto: <b>${esc(nome(eu.voto))}</b>${reveladosSet().has(eu.voto) ? " · ✅ era impostor!" : eu.voto === "ninguem" ? "" : " · ❌ não era impostor"}</p></div>` : ""; return; }
+  const opcoes = Object.values(colegas).filter((a) => a.uid !== state.uid).sort((a, b) => a.nome.localeCompare(b.nome));
+  box.innerHTML = `<div class="painel voto-box">
+    <h2>🗳️ Quem é impostor?</h2>
+    <p class="hint">Há ${nImp} impostor${nImp > 1 ? "es" : ""} na sala. Vote em 1 suspeito. Basta 1 voto para um impostor ser descoberto, então só vote se tiver motivo.${eu.voto ? ` Seu voto atual: <b>${esc(nome(eu.voto))}</b> (pode mudar até a publicação).` : ""}</p>
+    <div class="opcoes">${opcoes.map((a) => `<label class="opcao${eu.voto === a.uid ? " sel" : ""}"><input type="radio" name="voto" value="${a.uid}" ${eu.voto === a.uid ? "checked" : ""} /><span><b>${esc(a.nome)}</b></span></label>`).join("")}
+      <label class="opcao${eu.voto === "ninguem" ? " sel" : ""}"><input type="radio" name="voto" value="ninguem" ${eu.voto === "ninguem" ? "checked" : ""} /><span><b>Não tenho suspeito</b></span></label></div>
+    <button class="btn-primary" id="btn-votar" style="margin-top:10px" disabled>Registrar voto</button></div>`;
+  let escolha = null;
+  box.querySelectorAll("input[name=voto]").forEach((inp) => inp.addEventListener("change", () => {
+    escolha = inp.value;
+    box.querySelectorAll(".opcao").forEach((l) => l.classList.toggle("sel", l.contains(inp)));
+    box.querySelector("#btn-votar").disabled = false;
+  }));
+  box.querySelector("#btn-votar").addEventListener("click", async (ev) => {
+    if (!escolha) return;
+    ev.target.disabled = true;
+    try { await L.votar(state.roomCode, escolha); toast("🗳️ Voto registrado."); }
+    catch (e) { toast("Não foi possível registrar o voto."); ev.target.disabled = false; }
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -672,9 +847,9 @@ function abrirModal(colegaUid, cartaPedida = null) {
   $("#modal-colega-info").textContent = `${D.MAX_TROCAS - (c.trocas || 0)} trocas restantes${c.recado ? ` · recado: “${c.recado}”` : ""}`;
   $("#erro-modal-troca").textContent = ""; $("#input-argumento").value = "";
   const deles = Object.keys(cartas).filter((id) => cartas[id] === colegaUid);
-  renderMao($("#modal-mao-colega"), deles, { selecionavel: true, onClick: (id, el) => { selecionar("#modal-mao-colega", el); mPedida = id; atualizarConfirmar(); } });
+  renderMao($("#modal-mao-colega"), deles, { selecionavel: true, marca: (id) => dossieMarca(id, colegaUid), onClick: (id, el) => { selecionar("#modal-mao-colega", el); mPedida = id; atualizarConfirmar(); } });
   if (cartaPedida) $$("#modal-mao-colega .carta").forEach((el, i) => { if ([...deles].sort()[i] === cartaPedida) el.classList.add("selecionada"); });
-  renderMao($("#modal-mao-propria"), minhaMao, { selecionavel: true, marcarRepetidas: true, onClick: (id, el) => { selecionar("#modal-mao-propria", el); mOferta = id; atualizarConfirmar(); } });
+  renderMao($("#modal-mao-propria"), minhaMao, { selecionavel: true, marcarRepetidas: true, marca: (id) => dossieMarca(id, null, colegaUid), onClick: (id, el) => { selecionar("#modal-mao-propria", el); mOferta = id; atualizarConfirmar(); } });
   atualizarConfirmar();
   $("#modal-troca").classList.remove("hidden");
 }
@@ -762,33 +937,57 @@ $("#btn-q-avancar").addEventListener("click", async (ev) => {
 // ---------------------------------------------------------------------------
 function renderResultado() {
   const r = D.RAMO[eu.ramo];
-  const c = D.classificar(Object.values(colegas))[state.uid];
   const publicado = !!sala?.resultadoPublicado;
   const lider = D.FUNCIONARIOS[eu.liderEscolhido];
-  let html = `<div class="painel resultado nivel-${c.nivel.id}">
-    <p class="hint">${publicado ? "Resultado final" : "Resultado provisório: pode mudar até todos concluírem"}</p>
-    <div class="res-nivel">${c.nivel.emoji} <b>${c.nivel.nome}</b> <span class="res-nota">${fmtNota(c.nivel.nota)}</span></div>
-    <div class="kpis">
-      <div class="kpi"><b>${eu.equipeFinal}/6</b><span>da equipe ideal</span></div>
-      <div class="kpi"><b>${eu.trocas || 0}</b><span>trocas usadas</span></div>
-      <div class="kpi"><b>${c.pos ?? "—"}º</b><span>posição na turma</span></div>
-      <div class="kpi"><b>${publicado ? `${eu.acertos}/6` : "?"}</b><span>acertos no questionário</span></div>
-    </div>
-    <p>Líder escolhido: <b>${esc(lider?.nome)}</b> · ${esc(lider?.cargo)} ${publicado ? (eu.liderCerto ? "✅ certo" : "❌ não era o líder ideal") : ""}</p>
-    <p class="hint">Topo (5 vagas · 1,0) e ideal (8 vagas · 0,8) exigem 6/6 e o líder certo; desempate por menos trocas, depois mais acertos e quem concluiu primeiro. As 3 posições seguintes ficam com a equipe equilibrada (0,6).</p>
-  </div>`;
+  let topo;
+  if (!publicado) {
+    topo = `<div class="painel resultado">
+      <p class="hint">Você concluiu. A classificação e a nota saem quando o(a) professor(a) publicar o resultado.</p>
+      <div class="kpis">
+        <div class="kpi"><b>${eu.equipeFinal}/6</b><span>da equipe ideal</span></div>
+        <div class="kpi"><b>${eu.trocas || 0}</b><span>trocas usadas</span></div>
+      </div>
+      <p>Líder escolhido: <b>${esc(lider?.nome)}</b> · ${esc(lider?.cargo)}</p>
+      <p class="hint">Topo (5 vagas · 1,0) e ideal (8 vagas · 0,8) exigem 6/6 e o líder certo; desempate por menos trocas, depois mais acertos e quem concluiu primeiro. As 3 posições seguintes ficam com a equipe equilibrada (0,6).</p>
+    </div>`;
+  } else {
+    const set = reveladosSet();
+    const meuImp = (sala.impostoresRevelados || []).find((x) => x.uid === state.uid);
+    if (meuImp) {
+      const nv = Object.values(D.NIVEIS_IMPOSTOR).find((n) => n.id === meuImp.nivelId) || D.NIVEIS_IMPOSTOR.parcial;
+      const m = D.MISSOES[meuImp.missao];
+      topo = `<div class="painel resultado impostor-box"><p>Resultado final · ${m.icone} ${esc(m.nome)}</p>
+        <div class="res-nivel" style="color:#ffd166">${nv.emoji} <b>${esc(nv.nome)}</b> <span class="res-nota">${fmtNota(nv.nota)}</span></div>
+        <div class="kpis"><div class="kpi"><b>${meuImp.trocas}/${D.MAX_TROCAS}</b><span>trocas</span></div><div class="kpi"><b>${meuImp.prejudiciais}/${meuImp.meta}</b><span>trocas prejudiciais</span></div><div class="kpi"><b>${meuImp.votos}</b><span>votos recebidos</span></div></div></div>`;
+    } else {
+      const c = D.classificar(Object.values(colegas), set)[state.uid];
+      topo = `<div class="painel resultado nivel-${c.nivel.id}">
+        <p class="hint">Resultado final</p>
+        <div class="res-nivel">${c.nivel.emoji} <b>${c.nivel.nome}</b> <span class="res-nota">${fmtNota(c.nivel.nota)}</span></div>
+        <div class="kpis">
+          <div class="kpi"><b>${eu.equipeFinal}/6</b><span>da equipe ideal</span></div>
+          <div class="kpi"><b>${eu.trocas || 0}</b><span>trocas usadas</span></div>
+          <div class="kpi"><b>${c.pos ?? "—"}º</b><span>posição na turma</span></div>
+          <div class="kpi"><b>${eu.acertos}/6</b><span>acertos no questionário</span></div>
+        </div>
+        <p>Líder escolhido: <b>${esc(lider?.nome)}</b> · ${esc(lider?.cargo)} ${eu.liderCerto ? "✅ certo" : "❌ não era o líder ideal"}</p></div>`;
+    }
+  }
+  let gab = "";
   if (publicado) {
     const qs = D.montarQuestionario(eu.ramo, eu.maoFinal || []);
-    html += `<div class="painel"><h2>Gabarito comentado · ${r.icone} ${esc(r.nome)}</h2>
+    gab = `<div class="painel"><h2>Gabarito comentado · ${r.icone} ${esc(r.nome)}</h2>
       ${gabaritoRamoHTML(r, new Set(eu.maoFinal || []))}
       <ol class="correcao">${qs.map((q) => {
         const ok = eu.respostas?.[q.id] === q.certa;
         return `<li class="${ok ? "ok" : "erro"}"><b>${ok ? "✅" : "❌"} ${esc(q.teoria)}</b><br />${esc(q.explica)}</li>`;
       }).join("")}</ol></div>`;
-  } else {
-    html += `<div class="painel"><p>⏳ O gabarito comentado aparece quando o(a) professor(a) publicar o resultado. Enquanto isso, acompanhe a corrida abaixo.</p></div>`;
   }
-  $("#aluno-resultado").innerHTML = html;
+  const box = $("#aluno-resultado");
+  if (!box.querySelector("#res-topo")) box.innerHTML = `<div id="res-topo"></div><div id="res-voto"></div><div id="res-gab"></div>`;
+  box.querySelector("#res-topo").innerHTML = topo;
+  renderVoto(box.querySelector("#res-voto"));
+  box.querySelector("#res-gab").innerHTML = gab;
 }
 
 // ---------------------------------------------------------------------------

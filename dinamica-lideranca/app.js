@@ -95,7 +95,7 @@ async function criarSala(nomeProfessor, turma) {
   return code;
 }
 
-async function iniciarJogo(roomCode, duracaoMin) {
+async function iniciarJogo(roomCode, duracaoMin, numImpostores = D.IMPOSTORES_PADRAO) {
   const snap = await getDocs(collection(db, "rooms", roomCode, "students"));
   const alunos = snap.docs.map((d) => ({ uid: d.id, ramo: d.data().ramo })).filter((a) => D.RAMO[a.ramo]);
   const maos = D.distribuir(alunos);
@@ -104,13 +104,21 @@ async function iniciarJogo(roomCode, duracaoMin) {
     for (const cardId of maos[a.uid]) ops.push([doc(db, "rooms", roomCode, "cards", cardId), { donoUid: a.uid }]);
     ops.push([doc(db, "rooms", roomCode, "students", a.uid), { fase: "negociando", trocas: 0, equipeInicial: D.proximidade(a.ramo, maos[a.uid]) }, true]);
   }
+  // Sorteio secreto dos impostores: cada aluno tem um documento de papel (o de todos existe, para não denunciar ninguém)
+  const nImp = alunos.length >= D.MIN_ALUNOS_IMPOSTOR ? Math.max(0, Math.min(2, Number(numImpostores) || 0)) : 0;
+  const sorteio = [...alunos].sort(() => Math.random() - 0.5).slice(0, nImp).map((a) => a.uid);
+  const missoes = Object.keys(D.MISSOES).sort(() => Math.random() - 0.5);
+  for (const a of alunos) {
+    const i = sorteio.indexOf(a.uid);
+    ops.push([doc(db, "rooms", roomCode, "papeis", a.uid), i >= 0 ? { papel: "impostor", missao: missoes[i % missoes.length] } : { papel: "equipe" }]);
+  }
   // lotes de até 400 escritas
   for (let i = 0; i < ops.length; i += 400) {
     const batch = writeBatch(db);
     ops.slice(i, i + 400).forEach(([ref, data, upd]) => (upd ? batch.update(ref, data) : batch.set(ref, data)));
     await batch.commit();
   }
-  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), ramosAtivos: [...new Set(alunos.map((a) => a.ramo))] };
+  const dados = { status: "jogando", iniciadoEm: serverTimestamp(), ramosAtivos: [...new Set(alunos.map((a) => a.ramo))], numImpostores: nImp };
   const min = Number(duracaoMin);
   if (min > 0) dados.fimEm = agora() + min * 60000;
   await updateDoc(doc(db, "rooms", roomCode), dados);
@@ -118,7 +126,14 @@ async function iniciarJogo(roomCode, duracaoMin) {
 
 const enviarDica = (roomCode, texto) => updateDoc(doc(db, "rooms", roomCode), { dica: texto });
 const encerrarNegociacao = (roomCode) => updateDoc(doc(db, "rooms", roomCode), { status: "finalizado", encerradoEm: agora() });
-const publicarResultado = (roomCode, v = true) => updateDoc(doc(db, "rooms", roomCode), { resultadoPublicado: v });
+// Ao publicar, os impostores são revelados para a turma (com o resultado de cada um)
+const publicarResultado = (roomCode, v = true, revelados = []) =>
+  updateDoc(doc(db, "rooms", roomCode), { resultadoPublicado: v, impostoresRevelados: v ? revelados : [] });
+async function lerMeuPapel(roomCode) {
+  const s = await getDoc(doc(db, "rooms", roomCode, "papeis", state.uid));
+  return s.exists() ? s.data() : { papel: "equipe" };
+}
+const votar = (roomCode, suspeitoUid) => updateDoc(doc(db, "rooms", roomCode, "students", state.uid), { voto: suspeitoUid || "ninguem", votoEm: serverTimestamp() });
 
 // Resultado da sala gravado no próprio documento da sala (foto da classificação e das notas)
 const salvarResultado = (roomCode, resultado) => updateDoc(doc(db, "rooms", roomCode), { resultado, resultadoSalvoEm: serverTimestamp() });
@@ -245,7 +260,11 @@ async function aceitarTroca(roomCode, tradeId) {
     tx.update(peRef, { donoUid: t.deUid });
     tx.update(deRef, { trocas: (A.trocas || 0) + 1 });
     tx.update(paraRef, { trocas: (B.trocas || 0) + 1 });
-    tx.update(tradeRef, { status: "aceita", resolvidoEm: serverTimestamp(), aceitaMs: agora() });
+    const efeito = {
+      [t.deUid]: D.efeitoTroca(A.ramo, t.cartaPedidaId, t.cartaOferecidaId),
+      [t.paraUid]: D.efeitoTroca(B.ramo, t.cartaOferecidaId, t.cartaPedidaId),
+    };
+    tx.update(tradeRef, { status: "aceita", resolvidoEm: serverTimestamp(), aceitaMs: agora(), efeito });
     return "ok";
   });
   const msg = {
@@ -281,7 +300,7 @@ async function concluirQuestionario(roomCode, aluno, respostas, liderEscolhido, 
 
 window.LID = {
   state, D, agora, expirou, ms, jogoAberto,
-  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarNegociacao, publicarResultado, adicionarTempo, salvarResultado, listarSalas, lerAlunos, lerTrades, rotularSala,
+  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarNegociacao, publicarResultado, adicionarTempo, salvarResultado, lerMeuPapel, votar, listarSalas, lerAlunos, lerTrades, rotularSala,
   entrarNaSala, trocarRamo, salvarRecado, proporTroca, cancelarTroca, recusarTroca, expirarTroca, aceitarTroca,
   encerrarMinhaNegociacao, concluirQuestionario, sincronizarRelogio,
   salvarSessao, lerSessao, limparSessao, clearListeners,
