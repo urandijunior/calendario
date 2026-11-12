@@ -126,12 +126,14 @@ function linhaSala({ sala, res, dinamica }) {
     : `${pc(r.contratados, r.alunos)}% contratados · 💎 ${r.premium}`;
   const media = dinamica === "lideranca" ? `nota ${n1(r.notaMediaTodos ?? r.notaMedia)}` : `salário ${r.salarioMedio == null ? "—" : brl(r.salarioMedio)}`;
   const salvo = res.fonte === "salvo" ? `✅ <small>${new Date(res.salvoMs).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</small>` : "<small>calculado agora</small>";
-  return `<tr>
+  return `<tr class="${sala.removida ? "sala-removida" : ""}">
     <td><span class="din ${d.classe}">${d.icone} ${d.nome}</span></td>
     <td>${esc(sala.turma || "—")} <button class="link-toggle editar-turma" data-rotular="${sala.codigo}" title="Editar turma">✏️</button></td>
     <td><b>${sala.codigo}</b></td><td>${dataSala(sala)}</td><td>${STATUS[sala.status] || sala.status || ""}${sala.resultadoPublicado ? " · publicado" : ""}</td>
     <td>${r.alunos}</td><td>${resultado}</td><td>${media}</td><td>${salvo}</td>
-    <td class="acoes-sala">${dinamica === "lideranca" ? `<button class="btn-secondary btn-pequeno" data-abrir="${sala.codigo}">Abrir</button>` : ""}<button class="btn-secondary btn-pequeno" data-ver="${sala.codigo}">Alunos</button><button class="btn-secondary btn-pequeno" data-csv="${sala.codigo}">CSV</button></td></tr>`;
+    <td class="acoes-sala">${dinamica === "lideranca" ? `<button class="btn-secondary btn-pequeno" data-abrir="${sala.codigo}">Abrir</button>` : ""}<button class="btn-secondary btn-pequeno" data-ver="${sala.codigo}">Alunos</button><button class="btn-secondary btn-pequeno" data-csv="${sala.codigo}">CSV</button>${sala.removida
+      ? `<button class="btn-secondary btn-pequeno" data-restaurar="${sala.codigo}">↩ Restaurar</button><button class="btn-danger btn-pequeno" data-excluir="${sala.codigo}">Excluir de vez</button>`
+      : `<button class="btn-secondary btn-pequeno btn-remover" data-remover="${sala.codigo}">🗑 Remover</button>`}</td></tr>`;
 }
 
 function blocoLideranca(itens, D) {

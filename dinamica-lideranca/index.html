@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Mercado de Talentos: Liderança</title>
+<meta name="theme-color" content="#fbf6e9" />
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -27,7 +28,8 @@
         <button class="btn-secondary" id="btn-descartar-sessao">Começar do zero</button>
       </div>
     </div>
-    <h1>Como você vai participar?</h1>
+    <div class="capa"><div id="capa-cena" class="capa-cena"></div><div class="capa-txt"><span class="capa-kick">Administração · Liderança · Mercado</span><h1>Uma empresa em crise.<br />Uma equipe para montar.<br /><em>Um líder para escolher.</em></h1></div></div>
+    <h2 class="pergunta-home">Como você vai participar?</h2>
     <div class="cards-choice">
       <button class="choice-card" id="btn-sou-professor">
         <span class="choice-icon">🧑‍🏫</span><span>Sou professor(a)</span><small>Criar a sala e acompanhar a turma</small>
@@ -66,7 +68,7 @@
   <section id="screen-prof-historico" class="screen">
     <button class="link-back" data-back="screen-prof-criar">&larr; voltar</button>
     <h1>📚 Histórico de salas</h1>
-    <p class="hint">Salas desta dinâmica e da dinâmica de RH (Habilidades e Competências). Use ✏️ para dar nome de turma às salas antigas e organizar o histórico.</p>
+    <p class="hint">Salas desta dinâmica e da dinâmica de RH (Habilidades e Competências). Use ✏️ para dar nome de turma às salas antigas e 🗑 para tirar do histórico as salas que não interessam mais (inclusive as que ainda estão em andamento).</p>
     <div class="row historico-filtros">
       <select id="filtro-dinamica">
         <option value="">Todas as dinâmicas</option>
@@ -76,6 +78,7 @@
       <input type="text" id="filtro-historico" placeholder="🔎 Filtrar por turma ou código" autocomplete="off" />
       <button class="btn-secondary" id="btn-hist-atualizar">Atualizar</button>
       <button class="btn-primary" id="btn-hist-csv">⬇ CSV de todas as salas filtradas</button>
+      <label class="check-removidas"><input type="checkbox" id="filtro-removidas" /> Mostrar removidas</label>
     </div>
     <p id="hist-status" class="hint"></p>
     <div id="hist-conteudo"></div>
@@ -182,7 +185,7 @@
       </div>
     </div>
 
-    <button class="link-back" id="btn-sair-prof">Sair desta sala</button>
+    <div class="row rodape-sala"><button class="link-back" id="btn-sair-prof">Sair desta sala</button><button class="link-back link-perigo" id="btn-remover-sala">🗑 Remover esta sala</button></div>
   </section>
 
   <!-- ALUNO: ENTRAR -->
@@ -209,6 +212,7 @@
       <summary><h2 id="cenario-titulo"></h2><span class="ver-mais">ver missão e frentes</span></summary>
       <p id="cenario-texto"></p>
       <div class="ramo-box">
+        <div id="ramo-cena" class="ramo-banner"></div>
         <div class="ramo-head"><span id="ramo-icone" class="ramo-icone"></span><div><b id="ramo-nome"></b><br /><small id="ramo-empresa"></small></div></div>
         <p id="ramo-contexto"></p>
         <h3>As 6 frentes que a sua equipe precisa cobrir</h3>

@@ -8,7 +8,7 @@
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, query, where,
-  writeBatch, runTransaction, serverTimestamp, getDocs,
+  writeBatch, runTransaction, serverTimestamp, getDocs, deleteDoc,
 } from "./firebase.js";
 import { firebaseConfig } from "./firebase-config.js";
 import * as D from "./data.js";
@@ -161,6 +161,23 @@ async function lerTrades(roomCode) {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   } catch (e) { return null; }
 }
+// Remover sala: some do histórico e desconecta quem estiver nela. Pode ser restaurada depois.
+const removerSala = (roomCode) => updateDoc(doc(db, "rooms", roomCode), { removida: true, removidaMs: Date.now() });
+const restaurarSala = (roomCode) => updateDoc(doc(db, "rooms", roomCode), { removida: false });
+// Exclusão definitiva: apaga alunos, cartas, trocas e papéis e, por fim, a própria sala
+async function excluirSala(roomCode) {
+  for (const sub of ["trades", "cards", "papeis", "students"]) {
+    try {
+      const snap = await getDocs(collection(db, "rooms", roomCode, sub));
+      for (let i = 0; i < snap.docs.length; i += 400) {
+        const batch = writeBatch(db);
+        snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+    } catch (e) { /* segue: o que importa é a sala deixar de existir */ }
+  }
+  await deleteDoc(doc(db, "rooms", roomCode));
+}
 const rotularSala = (roomCode, turma) => updateDoc(doc(db, "rooms", roomCode), { turma: (turma || "").slice(0, 60) });
 async function lerAlunos(roomCode) {
   const snap = await getDocs(collection(db, "rooms", roomCode, "students"));
@@ -180,6 +197,7 @@ async function entrarNaSala(roomCode, nomeAluno, ramo) {
   if (!roomSnap.exists()) throw new Error("Código de sala não encontrado.");
   const room = roomSnap.data();
   if (room.tipo !== "lideranca") throw new Error("Este código é de outra dinâmica.");
+  if (room.removida) throw new Error("Esta sala foi removida pelo(a) professor(a).");
   const meuRef = doc(db, "rooms", roomCode, "students", state.uid);
   const meu = await getDoc(meuRef);
   if (meu.exists()) { await sincronizarRelogio(meuRef); return { room, aluno: meu.data() }; } // reconexão
@@ -300,7 +318,7 @@ async function concluirQuestionario(roomCode, aluno, respostas, liderEscolhido, 
 
 window.LID = {
   state, D, agora, expirou, ms, jogoAberto,
-  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarNegociacao, publicarResultado, adicionarTempo, salvarResultado, lerMeuPapel, votar, listarSalas, lerAlunos, lerTrades, rotularSala,
+  garantirLogin, criarSala, iniciarJogo, enviarDica, encerrarNegociacao, publicarResultado, adicionarTempo, salvarResultado, lerMeuPapel, votar, listarSalas, lerAlunos, lerTrades, rotularSala, removerSala, restaurarSala, excluirSala,
   entrarNaSala, trocarRamo, salvarRecado, proporTroca, cancelarTroca, recusarTroca, expirarTroca, aceitarTroca,
   encerrarMinhaNegociacao, concluirQuestionario, sincronizarRelogio,
   salvarSessao, lerSessao, limparSessao, clearListeners,

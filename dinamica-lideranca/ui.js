@@ -1,6 +1,7 @@
 // ui.js — interface da dinâmica Mercado de Talentos: Liderança. A lógica vive em app.js (window.LID).
 import { montarDebriefing } from "./debriefing.js";
 import * as H from "./historico.js";
+import * as A from "./arte.js";
 
 function waitFor() {
   return new Promise((resolve) => {
@@ -68,6 +69,13 @@ function sair() {
   show("screen-home");
 }
 $("#btn-sair-prof").addEventListener("click", sair);
+$("#btn-remover-sala").addEventListener("click", async () => {
+  const cod = state.roomCode; if (!cod) return;
+  const emUso = sala?.status === "jogando" || sala?.status === "lobby";
+  if (!confirm(`Remover a sala ${cod} do histórico?${emUso ? "\n\nEla ainda está em uso: os alunos que estiverem nela serão desconectados." : ""}\n\nOs dados ficam guardados e a sala pode ser restaurada em “Salas anteriores e resultados” › “Mostrar removidas”.`)) return;
+  try { await L.removerSala(cod); sair(); toast(`Sala ${cod} removida.`); }
+  catch (e) { toast("Não foi possível remover a sala: " + (e.message || e), 6000); }
+});
 $("#btn-sair-aluno").addEventListener("click", sair);
 
 let encerrandoPorTempo = false;
@@ -99,7 +107,7 @@ setInterval(() => {
 function ramosGrid(container, selecionado, onPick) {
   container.innerHTML = D.RAMOS.map((r) => `
     <button type="button" class="ramo-opcao${r.codigo === selecionado ? " sel" : ""}" data-ramo="${r.codigo}">
-      <span class="ramo-icone">${r.icone}</span><b>${esc(r.nome)}</b><small>${esc(r.empresa)}</small>
+      <span class="ramo-cena">${A.cena(r.codigo)}</span><b>${r.icone} ${esc(r.nome)}</b><small>${esc(r.empresa)}</small>
     </button>`).join("");
   container.querySelectorAll(".ramo-opcao").forEach((b) => b.addEventListener("click", () => {
     container.querySelectorAll(".ramo-opcao").forEach((x) => x.classList.toggle("sel", x === b));
@@ -113,7 +121,7 @@ function cartaEl(cardId, { selecionavel = false, onClick = null, nova = false, r
   if (!p) return el;
   el.className = "carta" + (selecionavel ? " selecionavel" : "") + (nova ? " nova" : "") + (repetida ? " repetida" : "") + (compacta ? " compacta" : "");
   el.innerHTML = `
-    <div class="carta-topo"><b>${esc(p.nome)}</b><span>${esc(p.cargo)}</span></div>
+    <div class="carta-topo">${A.retrato(p)}<div><b>${esc(p.nome)}</b><span>${esc(p.cargo)}</span></div></div>
     <div class="carta-corpo">
       <div><span class="tag tag-H">Habilidade</span> ${esc(p.hab)}</div>
       <div><span class="tag tag-C">Competência</span> ${esc(p.comp)}</div>
@@ -453,7 +461,8 @@ function iniciarSalaAluno(codigo) {
   $("#aluno-dica").classList.add("hidden");
 
   state.unsubs.push(onSnapshot(doc(db, "rooms", codigo), (snap) => {
-    const r = snap.data(); if (!r) return;
+    const r = snap.data();
+    if (!r || r.removida) { if (sala || r) { sair(); toast("Esta sala foi removida pelo(a) professor(a).", 6000); } return; }
     sala = r;
     if (r.dica && r.dica !== ultimaDica) {
       ultimaDica = r.dica;
@@ -639,6 +648,7 @@ function renderTudo() {
   $("#cenario-titulo").textContent = "🎯 " + D.CENARIO.titulo;
   $("#cenario-texto").textContent = D.CENARIO.texto;
   $("#cenario-lembretes").innerHTML = D.CENARIO.lembretes.map((t) => `<li>${esc(t)}</li>`).join("");
+  if ($("#ramo-cena").dataset.ramo !== r.codigo) { $("#ramo-cena").innerHTML = A.cena(r.codigo); $("#ramo-cena").dataset.ramo = r.codigo; }
   $("#ramo-icone").textContent = r.icone;
   $("#ramo-nome").textContent = r.nome;
   $("#ramo-empresa").textContent = r.empresa;
@@ -713,7 +723,7 @@ function renderMural() {
   disp.slice(0, 120).forEach((x) => {
     const row = document.createElement("div");
     row.className = "mural-item";
-    row.innerHTML = `<div><b>${esc(x.p.nome)}</b> · ${esc(x.p.cargo)}<br /><small><span class="tag tag-H">H</span> ${esc(x.p.hab)}</small><br /><small class="mural-dono">com ${esc(colegas[x.dono].nome)} · ${D.MAX_TROCAS - (colegas[x.dono].trocas || 0)} trocas restantes</small>${dossieMarca(x.id, x.dono)}</div>
+    row.innerHTML = `${A.retrato(x.p, "retrato retrato-p")}<div class="mural-txt"><b>${esc(x.p.nome)}</b> · ${esc(x.p.cargo)}<br /><small><span class="tag tag-H">H</span> ${esc(x.p.hab)}</small><br /><small class="mural-dono">com ${esc(colegas[x.dono].nome)} · ${D.MAX_TROCAS - (colegas[x.dono].trocas || 0)} trocas restantes</small>${dossieMarca(x.id, x.dono)}</div>
       <button class="btn-secondary btn-pequeno" ${travado ? "disabled" : ""}>Pedir</button>`;
     row.querySelector("button").addEventListener("click", () => abrirModal(x.dono, x.id));
     box.appendChild(row);
@@ -1016,6 +1026,7 @@ $("#btn-ver-historico").addEventListener("click", () => exigirPin(() => { show("
 $("#btn-hist-atualizar").addEventListener("click", carregarHistorico);
 $("#filtro-historico").addEventListener("input", renderHistorico);
 $("#filtro-dinamica").addEventListener("change", renderHistorico);
+$("#filtro-removidas").addEventListener("change", renderHistorico);
 
 async function carregarHistorico() {
   $("#hist-status").textContent = "Carregando salas...";
@@ -1034,14 +1045,16 @@ async function carregarHistorico() {
     }));
     // salas vazias (criadas e abandonadas) não poluem o histórico
     historico = historico.filter((x) => x.res.alunos.length);
-    $("#hist-status").textContent = `${historico.length} sala(s) com alunos.`;
+    const nRem = historico.filter((x) => x.sala.removida).length;
+    $("#hist-status").textContent = `${historico.length - nRem} sala(s) com alunos${nRem ? ` · ${nRem} removida(s) (marque “Mostrar removidas” para ver)` : ""}.`;
     renderHistorico();
   } catch (e) { $("#hist-status").textContent = "Não foi possível carregar o histórico: " + (e.message || e); }
 }
 function historicoFiltrado() {
   const f = ($("#filtro-historico").value || "").trim().toLowerCase();
   const din = $("#filtro-dinamica").value;
-  return historico.filter(({ sala, dinamica }) => (!din || dinamica === din) && (!f || `${sala.turma || ""} ${sala.codigo}`.toLowerCase().includes(f)));
+  const lixeira = $("#filtro-removidas").checked;
+  return historico.filter(({ sala, dinamica }) => !!sala.removida === lixeira && (!din || dinamica === din) && (!f || `${sala.turma || ""} ${sala.codigo}`.toLowerCase().includes(f)));
 }
 const nomeArq = (item) => `${item.dinamica === "rh" ? "rh" : "lideranca"}-${(item.sala.turma || "sem-turma").replace(/[^\w-]+/g, "_")}-${item.sala.codigo}.csv`;
 const csvItens = (itens) => (itens[0]?.dinamica === "rh" ? H.csvRH(itens) : H.csvDe(itens));
@@ -1058,6 +1071,22 @@ function renderHistorico() {
     det.querySelector("[data-fechar-detalhe]").addEventListener("click", () => (det.innerHTML = ""));
     det.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
+  const acao = (attr, fn) => box.querySelectorAll(`[data-${attr}]`).forEach((b) => b.addEventListener("click", async () => {
+    const it = achar(b.dataset[attr]); if (!it) return;
+    b.disabled = true;
+    try { await fn(it); } catch (e) { if (e.message !== "cancelado") toast("Não foi possível concluir: " + (e.message || e), 6000); b.disabled = false; }
+  }));
+  const rotulo = (it) => `${it.sala.codigo}${it.sala.turma ? ` (${it.sala.turma})` : ""}`;
+  acao("remover", async (it) => {
+    const emUso = it.sala.status === "jogando" || it.sala.status === "lobby";
+    if (!confirm(`Remover a sala ${rotulo(it)} do histórico?${emUso && it.dinamica === "lideranca" ? "\n\nEla ainda está em uso: os alunos que estiverem nela serão desconectados." : ""}\n\nOs dados ficam guardados e a sala pode ser restaurada em “Mostrar removidas”.`)) throw new Error("cancelado");
+    await L.removerSala(it.sala.codigo); it.sala.removida = true; renderHistorico(); toast(`Sala ${it.sala.codigo} removida.`);
+  });
+  acao("restaurar", async (it) => { await L.restaurarSala(it.sala.codigo); it.sala.removida = false; renderHistorico(); toast(`Sala ${it.sala.codigo} restaurada.`); });
+  acao("excluir", async (it) => {
+    if (!confirm(`Excluir DEFINITIVAMENTE a sala ${rotulo(it)}?\n\nAlunos, notas e trocas dessa sala serão apagados e não será possível recuperar. Se precisar das notas, baixe o CSV antes.`)) throw new Error("cancelado");
+    await L.excluirSala(it.sala.codigo); historico = historico.filter((x) => x !== it); renderHistorico(); toast(`Sala ${it.sala.codigo} excluída.`);
+  });
   box.querySelectorAll("[data-rotular]").forEach((b) => b.addEventListener("click", async () => {
     const it = achar(b.dataset.rotular);
     const novo = prompt(`Nome da turma da sala ${it.sala.codigo}:`, it.sala.turma || "");
@@ -1073,3 +1102,6 @@ $("#btn-hist-csv").addEventListener("click", () => {
   if (lid.length) H.baixar(`historico-lideranca-${dia}.csv`, H.csvDe(lid));
   if (rh.length) setTimeout(() => H.baixar(`historico-rh-${dia}.csv`, H.csvRH(rh)), 400);
 });
+
+// Ilustração da tela inicial (desenhada no aparelho, sem baixar imagem)
+$("#capa-cena").innerHTML = A.cidade();

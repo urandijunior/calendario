@@ -487,3 +487,119 @@ input[type="password"] { display: block; width: 100%; margin-top: 6px; padding: 
 .imp-card b { color: var(--navy); }
 .tag-imp { background: #1f1f2b; }
 .impostor-linha { border-color: #1f1f2b; background: #f1eff6; }
+
+/* =====================================================================
+   TEMA AQUARELA — papel claro, céu e verde-água (inovação), traço de
+   animação pintada à mão. Sem fontes nem imagens baixadas: tudo é CSS/SVG.
+   ===================================================================== */
+:root {
+    --navy: #25566b; --gold: #e0a43a; --green: #4f9a63; --purple: #7d6bc4; --blue: #3f93b8; --orange: #e9745a;
+    --grey: #6f6a5c; --light: #f6f0df; --border: #e7dcbd; --ok: #3f9a5f; --danger: #cf4f3c;
+    --papel: #fffaf0; --menta: #4fb3a6; --menta2: #dff3ee; --ceu: #cfeaf3; --sol2: #fdf0cc; --tinta: #3b3a33;
+    --grao: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .4 0 0 0 0 .25 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    --f-tit: "Kaisei Decol", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --f-txt: "Zen Maru Gothic", ui-rounded, "Hiragino Maru Gothic ProN", "Nunito", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+body { font-family: var(--f-txt); color: var(--tinta); background: linear-gradient(180deg, #d9eff5 0, #fbf6e9 340px) no-repeat, #fbf6e9; background-image: var(--grao), linear-gradient(180deg, #d9eff5 0, #fbf6e9 340px); background-color: #fbf6e9; background-repeat: repeat, no-repeat; line-height: 1.5; }
+h1, h2, .brand-sub, .res-nivel, .codigo-grande { font-family: var(--f-tit); letter-spacing: 0; }
+h1 { font-size: 25px; } h2 { font-size: 18.5px; }
+h3 { color: var(--menta); letter-spacing: .06em; font-weight: 800; font-size: 12.5px; }
+.hint { color: var(--grey); }
+
+.topbar { background: rgba(255, 250, 240, .94); color: var(--navy); border-bottom: 1.5px solid var(--border); box-shadow: 0 3px 0 rgba(120, 100, 40, .06); backdrop-filter: blur(6px); padding: 10px 18px; }
+.brand { color: var(--orange); font-size: 12.5px; }
+.brand-sub { font-size: 18px; font-weight: 700; color: var(--navy); }
+.timer { background: var(--menta2); color: var(--navy); border: 1.5px solid #bfe3da; border-radius: 999px; }
+.timer.urgente { background: var(--danger); color: #fff; border-color: var(--danger); }
+
+/* botões e campos */
+.btn-primary, .btn-secondary, .btn-danger { border-radius: 999px; font-weight: 700; font-family: inherit; transition: transform .1s, filter .15s; }
+.btn-primary { background: var(--menta); color: #fff; box-shadow: 0 3px 0 #33867b; }
+.btn-primary:disabled { background: #b9c7c2; box-shadow: none; }
+.btn-secondary { background: var(--papel); color: var(--navy); border: 1.5px solid #cfc29b; box-shadow: 0 3px 0 var(--border); }
+.btn-danger { background: var(--danger); box-shadow: 0 3px 0 #9c3626; }
+.btn-primary:not(:disabled):hover, .btn-secondary:not(:disabled):hover, .btn-danger:not(:disabled):hover { filter: brightness(1.06); }
+.btn-primary:not(:disabled):active, .btn-secondary:not(:disabled):active, .btn-danger:not(:disabled):active { transform: translateY(2px); box-shadow: none; }
+input[type="text"], input[type="password"], select { border: 1.5px solid #d9cda6; border-radius: 14px; background: #fffdf6; color: var(--tinta); font-family: inherit; }
+input:focus, select:focus { outline: 3px solid rgba(79, 179, 166, .3); border-color: var(--menta); }
+label { color: var(--tinta); font-weight: 700; }
+.link-back, .link-toggle { color: var(--navy); font-family: inherit; }
+.link-perigo { color: var(--danger); }
+.rodape-sala { justify-content: space-between; margin-top: 6px; }
+
+/* cartões de papel */
+.painel, .placar-item, .choice-card, .aba, .imp-card { background: var(--papel); background-image: var(--grao); border: 1.5px solid var(--border); border-radius: 18px; box-shadow: 0 2px 0 rgba(120, 100, 40, .06), 0 8px 22px rgba(90, 75, 30, .08); }
+.painel.destaque, .painel-interno.destaque { border-color: var(--gold); background-color: var(--sol2); }
+.kpi, .nivel, .ramo-box, .argumento { background: #fbf3dc; border-radius: 14px; }
+.kpi b, .nivel b, .placar-valor b, .codigo-grande { color: var(--navy); }
+.aba { box-shadow: none; } .aba.ativa { background: var(--navy); border-color: var(--navy); box-shadow: 0 3px 0 #173846; }
+.codigo-grande { background: var(--sol2); border: 2px dashed var(--gold); border-radius: 18px; }
+.codigo-pill { background: var(--gold); color: #4a3510; }
+.dica-banner { background: var(--sol2); border: 1.5px solid #f0d58a; border-radius: 14px; }
+.banner-sucesso { border-radius: 16px; } .banner-alerta { border-radius: 16px; }
+.toast { background: var(--navy); border-radius: 999px; padding: 12px 22px; box-shadow: 0 8px 24px rgba(40, 60, 70, .3); }
+.tabela th { background: #f3ead0; color: var(--navy); } .tabela td { border-bottom-color: var(--border); }
+.chip { background: var(--sol2); border-color: #f0d58a; font-family: inherit; }
+.ramo-chip { background: var(--menta2); }
+.modal { background: rgba(60, 55, 35, .45); } .modal-box { background: var(--papel); background-image: var(--grao); border-radius: 24px 24px 0 0; }
+@media (min-width: 760px) { .modal-box { border-radius: 24px; } }
+
+/* capa da tela inicial */
+.capa { position: relative; border-radius: 24px; overflow: hidden; border: 1.5px solid var(--border); box-shadow: 0 2px 0 rgba(120, 100, 40, .06), 0 14px 34px rgba(90, 75, 30, .14); margin-bottom: 20px; background: var(--ceu); }
+.capa { display: flex; flex-direction: column; }
+.capa-cena { height: 180px; order: 2; } .cena-svg { display: block; width: 100%; height: 100%; }
+.capa-txt { order: 1; padding: 18px 20px 14px; background: var(--papel); background-image: var(--grao); border-bottom: 1.5px solid var(--border); }
+.capa-kick { display: inline-block; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--orange); margin-bottom: 4px; }
+.capa h1 { margin: 0; font-size: clamp(21px, 5.2vw, 30px); line-height: 1.22; } .capa h1 em { font-style: normal; color: var(--menta); }
+.pergunta-home { margin-bottom: 12px; }
+.choice-card { color: var(--navy); font-family: var(--f-tit); font-size: 18px; transition: transform .15s; } .choice-card:hover { transform: translateY(-3px); }
+.choice-card small { font-family: var(--f-txt); }
+.choice-icon { width: 64px; height: 64px; border-radius: 50%; background: var(--menta2); display: grid; place-items: center; font-size: 32px; }
+
+/* empresas */
+.ramos-grid { grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); gap: 10px; }
+.ramo-opcao { background: var(--papel); border: 1.5px solid var(--border); border-radius: 16px; padding: 0 0 10px; overflow: hidden; transition: transform .15s, box-shadow .15s; }
+.ramo-opcao > b, .ramo-opcao > small { padding: 0 10px; } .ramo-opcao > b { margin-top: 6px; font-family: var(--f-tit); font-size: 15px; }
+.ramo-opcao:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(90, 75, 30, .14); }
+.ramo-opcao.sel { border: 2.5px solid var(--menta); background: var(--menta2); box-shadow: 0 3px 0 #33867b; }
+.ramo-cena { display: block; height: 84px; border-bottom: 1.5px solid var(--border); }
+.ramo-banner { height: 170px; border-radius: 14px; overflow: hidden; margin-bottom: 10px; border: 1.5px solid var(--border); }
+.ramo-box { padding: 10px; } .ramo-icone { font-size: 24px; }
+.frentes li::marker { color: var(--menta); font-weight: 800; }
+
+/* cartas de funcionário */
+.carta { border: 1.5px solid var(--border); border-radius: 16px; background: #fffdf6; box-shadow: 0 2px 0 var(--border); }
+.carta-topo { background: linear-gradient(180deg, var(--ceu), #e9f5ee); color: var(--navy); flex-direction: row; align-items: center; gap: 10px; padding: 10px; border-bottom: 1.5px solid var(--border); }
+.carta-topo > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.carta-topo b { font-family: var(--f-tit); font-size: 15px; } .carta-topo span { opacity: 1; color: var(--grey); line-height: 1.25; }
+.retrato { width: 52px; height: 52px; flex: none; border-radius: 50%; border: 2.5px solid #fffdf6; box-shadow: 0 2px 6px rgba(60, 80, 90, .25); background: #fffdf6; }
+.retrato-p { width: 40px; height: 40px; }
+.carta.selecionada .carta-topo { background: linear-gradient(180deg, #fbe6a6, var(--sol2)); }
+.mao-selecionavel .carta:hover { box-shadow: 0 0 0 2.5px var(--menta); }
+.mao-selecionavel .carta.selecionada { box-shadow: 0 0 0 3px var(--gold); }
+.tag { border-radius: 999px; padding: 1px 8px; } .tag-H { background: var(--blue); } .tag-C { background: var(--orange); } .tag-L { background: var(--purple); }
+.carta-lidera { color: #4b3f7a; }
+.mural-item { background: #fffdf6; border: 1.5px solid var(--border); border-radius: 14px; }
+.mural-item .mural-txt { flex: 1; min-width: 0; }
+.recado { background: var(--sol2); border-radius: 12px; }
+.troca-item, .aluno-item, .opcao, .vaga { border: 1.5px solid var(--border); border-radius: 14px; background: #fffdf6; }
+.aluno-item.completo { border-color: var(--ok); background: #eaf6e6; }
+.opcao.sel, .ramo-opcao.sel { border-color: var(--menta); } .opcao.sel { border-width: 2px; background: var(--menta2); }
+.passos span.atual { background: var(--menta); } .passos span.feito { background: var(--ok); }
+.q-teoria { color: var(--purple); } .q-texto { color: var(--tinta); font-family: var(--f-tit); font-size: 17.5px; }
+.medidor, .fichas span, .progresso, .barra-fases, .db-trilho { background: #efe6c9; }
+.fichas span.on { background: var(--menta); } .f-neg { background: var(--blue); }
+.res-nota { background: var(--menta); border-radius: 999px; }
+.expira { background: var(--menta2); border-radius: 999px; }
+.gab-tinha { background: #eaf6e6; }
+
+/* histórico: remover e restaurar salas */
+.check-removidas { display: inline-flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; font-size: 14px; }
+.check-removidas input { width: 18px; height: 18px; accent-color: var(--menta); }
+.acoes-sala { min-width: 108px; }
+.btn-remover { color: var(--danger); border-color: #ecc3b9; }
+.acoes-sala .btn-danger { display: block; width: 100%; padding: 5px 8px; font-size: 12px; }
+tr.sala-removida td { background: #fbeee9; }
+
+@media (max-width: 480px) { .capa-cena { height: 150px; } .ramo-banner { height: 130px; } .retrato { width: 46px; height: 46px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
