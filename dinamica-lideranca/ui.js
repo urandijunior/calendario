@@ -73,7 +73,7 @@ $("#btn-remover-sala").addEventListener("click", async () => {
   const cod = state.roomCode; if (!cod) return;
   const emUso = sala?.status === "jogando" || sala?.status === "lobby";
   if (!confirm(`Remover a sala ${cod} do histórico?${emUso ? "\n\nEla ainda está em uso: os alunos que estiverem nela serão desconectados." : ""}\n\nOs dados ficam guardados e a sala pode ser restaurada em “Salas anteriores e resultados” › “Mostrar removidas”.`)) return;
-  try { await L.removerSala(cod); sair(); toast(`Sala ${cod} removida.`); }
+  try { const onde = await removerComReserva(cod); sair(); toast(onde === "local" ? `Sala ${cod} removida do histórico deste navegador (o Firebase não permitiu marcar no servidor).` : `Sala ${cod} removida.`, 6000); }
   catch (e) { toast("Não foi possível remover a sala: " + (e.message || e), 6000); }
 });
 $("#btn-sair-aluno").addEventListener("click", sair);
@@ -1022,6 +1022,16 @@ $("#btn-retomar").addEventListener("click", async (ev) => {
 // PROFESSOR: histórico de salas e painel consolidado
 // ---------------------------------------------------------------------------
 let historico = []; // [{ sala, res, dinamica }]
+// Quando as regras do Firebase não deixam marcar a sala como removida no servidor,
+// ela é ocultada só neste navegador (lista guardada no aparelho).
+const OCULTAS_KEY = "lid-salas-ocultas";
+const lerOcultas = () => { try { return new Set(JSON.parse(localStorage.getItem(OCULTAS_KEY) || "[]")); } catch (e) { return new Set(); } };
+const gravarOcultas = (set) => { try { localStorage.setItem(OCULTAS_KEY, JSON.stringify([...set])); } catch (e) {} };
+const semPermissao = (e) => e?.code === "permission-denied" || /insufficient permissions/i.test(e?.message || "");
+async function removerComReserva(codigo) {
+  try { await L.removerSala(codigo); return "servidor"; }
+  catch (e) { if (!semPermissao(e)) throw e; const o = lerOcultas(); o.add(codigo); gravarOcultas(o); return "local"; }
+}
 $("#btn-ver-historico").addEventListener("click", () => exigirPin(() => { show("screen-prof-historico"); $("#app").classList.add("largo"); carregarHistorico(); }));
 $("#btn-hist-atualizar").addEventListener("click", carregarHistorico);
 $("#filtro-historico").addEventListener("input", renderHistorico);
@@ -1045,6 +1055,8 @@ async function carregarHistorico() {
     }));
     // salas vazias (criadas e abandonadas) não poluem o histórico
     historico = historico.filter((x) => x.res.alunos.length);
+    const ocultas = lerOcultas();
+    historico.forEach((x) => { if (ocultas.has(x.sala.codigo)) { x.sala.removida = true; x.sala.removidaLocal = true; } });
     const nRem = historico.filter((x) => x.sala.removida).length;
     $("#hist-status").textContent = `${historico.length - nRem} sala(s) com alunos${nRem ? ` · ${nRem} removida(s) (marque “Mostrar removidas” para ver)` : ""}.`;
     renderHistorico();
@@ -1080,12 +1092,20 @@ function renderHistorico() {
   acao("remover", async (it) => {
     const emUso = it.sala.status === "jogando" || it.sala.status === "lobby";
     if (!confirm(`Remover a sala ${rotulo(it)} do histórico?${emUso && it.dinamica === "lideranca" ? "\n\nEla ainda está em uso: os alunos que estiverem nela serão desconectados." : ""}\n\nOs dados ficam guardados e a sala pode ser restaurada em “Mostrar removidas”.`)) throw new Error("cancelado");
-    await L.removerSala(it.sala.codigo); it.sala.removida = true; renderHistorico(); toast(`Sala ${it.sala.codigo} removida.`);
+    const onde = await removerComReserva(it.sala.codigo);
+    it.sala.removida = true; it.sala.removidaLocal = onde === "local"; renderHistorico();
+    toast(onde === "local" ? `Sala ${it.sala.codigo} removida do histórico deste navegador (o Firebase não permitiu marcar no servidor).` : `Sala ${it.sala.codigo} removida.`, 6000);
   });
-  acao("restaurar", async (it) => { await L.restaurarSala(it.sala.codigo); it.sala.removida = false; renderHistorico(); toast(`Sala ${it.sala.codigo} restaurada.`); });
+  acao("restaurar", async (it) => {
+    const o = lerOcultas(); o.delete(it.sala.codigo); gravarOcultas(o);
+    if (!it.sala.removidaLocal) await L.restaurarSala(it.sala.codigo);
+    it.sala.removida = false; it.sala.removidaLocal = false; renderHistorico(); toast(`Sala ${it.sala.codigo} restaurada.`);
+  });
   acao("excluir", async (it) => {
     if (!confirm(`Excluir DEFINITIVAMENTE a sala ${rotulo(it)}?\n\nAlunos, notas e trocas dessa sala serão apagados e não será possível recuperar. Se precisar das notas, baixe o CSV antes.`)) throw new Error("cancelado");
-    await L.excluirSala(it.sala.codigo); historico = historico.filter((x) => x !== it); renderHistorico(); toast(`Sala ${it.sala.codigo} excluída.`);
+    try { await L.excluirSala(it.sala.codigo); }
+    catch (e) { if (semPermissao(e)) throw new Error("as regras do Firebase não permitem apagar salas por aqui. A sala continua removida do histórico; para apagar de vez, use o console do Firebase ou ajuste as regras."); throw e; }
+    historico = historico.filter((x) => x !== it); renderHistorico(); toast(`Sala ${it.sala.codigo} excluída.`);
   });
   box.querySelectorAll("[data-rotular]").forEach((b) => b.addEventListener("click", async () => {
     const it = achar(b.dataset.rotular);
