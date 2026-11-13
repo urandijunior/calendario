@@ -297,6 +297,42 @@ function linhasNotas(real = verImpostores()) {
     (x.c.pos ?? 999) - (y.c.pos ?? 999) || (y.a.equipeFinal ?? proxCache[y.a.uid] ?? 0) - (x.a.equipeFinal ?? proxCache[x.a.uid] ?? 0) || x.a.nome.localeCompare(y.a.nome));
 }
 
+// Ordenação da tabela do professor: clique no título da coluna (1º clique: maior/A→Z primeiro; 2º: inverte; 3º: volta à classificação)
+let ordemProf = { col: null, dir: 1 };
+const FASE_ORD = { negociando: 0, lider: 1, concluido: 2 };
+const COLS_PROF = [
+  ["pos", "#", (x) => x.c.pos ?? 999, 1],
+  ["nome", "Aluno", (x) => (x.a.nome || "").toLowerCase(), 1],
+  ["ramo", "Ramo", (x) => (D.RAMO[x.a.ramo]?.nome || "").toLowerCase(), 1],
+  ["equipe", "Equipe", (x) => x.a.equipeFinal ?? proxCache[x.a.uid] ?? -1, -1],
+  ["trocas", "Trocas", (x) => x.a.trocas || 0, -1],
+  ["fase", "Fase", (x) => FASE_ORD[x.a.fase] ?? -1, -1],
+  ["quiz", "Questionário", (x) => (x.a.fase === "concluido" ? x.a.acertos || 0 : -1), -1],
+  ["lider", "Líder", (x) => (x.a.fase === "concluido" ? (x.a.liderCerto ? 1 : 0) : -1), -1],
+  ["votos", "Votos", (x) => x.votos || 0, -1],
+  ["nivel", "Nível", (x) => (x.c.pendente ? -1 : x.c.nivel.nota), -1],
+  ["nota", "Nota", (x) => (x.c.pendente ? -1 : x.c.nivel.nota), -1],
+];
+function ordenarLinhasProf(linhas) {
+  const col = COLS_PROF.find((c) => c[0] === ordemProf.col);
+  if (!col) return linhas;
+  const [, , val, natural] = col, dir = natural * ordemProf.dir;
+  return [...linhas].sort((x, y) => { const a = val(x), b = val(y); return (a < b ? -1 : a > b ? 1 : 0) * dir; });
+}
+function thProf(id) {
+  const [, rotulo] = COLS_PROF.find((c) => c[0] === id);
+  const ativo = ordemProf.col === id;
+  return `<th class="ord${ativo ? " ord-on" : ""}" data-ord="${id}" title="Clique para ordenar">${rotulo} <span>${ativo ? (ordemProf.dir === 1 ? "▼" : "▲") : "↕"}</span></th>`;
+}
+$("#dash-lista-alunos").addEventListener("click", (e) => {
+  const th = e.target.closest("th[data-ord]"); if (!th) return;
+  const id = th.dataset.ord;
+  if (ordemProf.col !== id) ordemProf = { col: id, dir: 1 };
+  else if (ordemProf.dir === 1) ordemProf.dir = -1;
+  else ordemProf = { col: null, dir: 1 };
+  renderListaProf();
+});
+
 function renderListaProf() {
   const arr = Object.values(alunosProf);
   $("#dash-total-alunos").textContent = arr.length;
@@ -322,8 +358,12 @@ function renderListaProf() {
   const real = verImpostores();
   const votos = {};
   arr.forEach((a) => { if (a.voto && a.voto !== "ninguem" && !impSetProf().has(a.uid)) votos[a.voto] = (votos[a.voto] || 0) + 1; });
-  box.innerHTML = `<table class="tabela"><thead><tr><th>#</th><th>Aluno</th><th>Ramo</th><th>Equipe</th><th>Trocas</th><th>Fase</th><th>Questionário</th><th>Líder</th>${real ? "<th>Votos</th>" : ""}<th>Nível</th><th>Nota</th></tr></thead><tbody>
-    ${linhasNotas().map(({ a, c }) => {
+  const cols = ["pos", "nome", "ramo", "equipe", "trocas", "fase", "quiz", "lider"].concat(real ? ["votos"] : [], ["nivel", "nota"]);
+  if (ordemProf.col === "votos" && !real) ordemProf = { col: null, dir: 1 };
+  const linhas = ordenarLinhasProf(linhasNotas().map((x) => ({ ...x, votos: votos[x.a.uid] || 0 })));
+  box.innerHTML = `<p class="hint ord-dica">Clique no título de uma coluna para organizar a lista${ordemProf.col ? ` · ordenado por <b>${COLS_PROF.find((c) => c[0] === ordemProf.col)[1]}</b> (clique de novo para inverter; no 3º clique volta à classificação)` : " (por padrão: classificação)"}.</p>
+    <table class="tabela"><thead><tr>${cols.map(thProf).join("")}</tr></thead><tbody>
+    ${linhas.map(({ a, c }) => {
       const r = D.RAMO[a.ramo];
       const eq = a.equipeFinal ?? proxCache[a.uid];
       return `<tr class="${c.pendente ? "pendente" : ""}">

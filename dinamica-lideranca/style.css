@@ -603,3 +603,10 @@ tr.sala-removida td { background: #fbeee9; }
 
 @media (max-width: 480px) { .capa-cena { height: 150px; } .ramo-banner { height: 130px; } .retrato { width: 46px; height: 46px; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+/* painel do professor: colunas ordenáveis */
+.tabela th.ord { cursor: pointer; user-select: none; white-space: nowrap; }
+.tabela th.ord span { opacity: .45; font-size: 11px; }
+.tabela th.ord:hover { background: #ebdfbd; }
+.tabela th.ord-on { background: var(--navy); color: #fff; } .tabela th.ord-on span { opacity: 1; }
+.ord-dica { margin: 0 0 6px; }
