@@ -608,5 +608,5 @@ tr.sala-removida td { background: #fbeee9; }
 .tabela th.ord { cursor: pointer; user-select: none; white-space: nowrap; }
 .tabela th.ord span { opacity: .45; font-size: 11px; }
 .tabela th.ord:hover { background: #ebdfbd; }
-.tabela th.ord-on { background: var(--navy); color: #fff; } .tabela th.ord-on span { opacity: 1; }
+.tabela th.ord.ord-on, .tabela th.ord.ord-on:hover { background: var(--navy); color: #fff; } .tabela th.ord.ord-on span { opacity: 1; }
 .ord-dica { margin: 0 0 6px; }
