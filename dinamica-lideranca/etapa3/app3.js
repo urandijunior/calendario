@@ -13,8 +13,8 @@
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
-} from "../firebase.js";
-import { firebaseConfig } from "../firebase-config.js";
+} from "../firebase.js?v=6";
+import { firebaseConfig } from "../firebase-config.js?v=6";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -146,14 +146,12 @@ export async function criarAvulso(sala, { nome, ramo, mao }) {
   const uid = await garantirLogin();
   const atual = await getDoc(refAluno(sala, uid));
   if (atual.exists()) return { uid, jaExiste: true, dados: atual.data() };
+  // Dois passos de propósito: a criação usa exatamente o formato que a Etapa 2 grava
+  // (é o que as regras do Firestore aceitam na criação); a etapa3 entra depois, por update.
   await setDoc(refAluno(sala, uid), {
     nome, ramo, fase: "espera", trocas: 0, entrouEm: serverTimestamp(),
-    etapa3: {
-      status: "fazendo", ramo, mao, lider: null, avulso: true, incompleto: false,
-      nomeDigitado: nome, aparelhoUid: uid, iniciadoMs: agora(), i: 0, respostas: {}, anuladas: {}, perdoadas: {}, saidas: 0,
-    },
   }, { merge: true });
-  estado.alunoId = uid;
+  await iniciarAluno(sala, uid, { ramo, mao, lider: null, nomeDigitado: nome, avulso: true });
   return { uid, jaExiste: false };
 }
 

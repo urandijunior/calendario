@@ -1,11 +1,11 @@
 // ui3.js — Etapa 3: telas do aluno, trava de segurança e painel docente.
 
-import * as A from "./app3.js";
-import * as D from "../data.js";
-import { retrato } from "../arte.js";
-import { CENARIOS3 } from "./cenarios3.js";
-import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js";
-import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js";
+import * as A from "./app3.js?v=6";
+import * as D from "../data.js?v=6";
+import { retrato } from "../arte.js?v=6";
+import { CENARIOS3 } from "./cenarios3.js?v=6";
+import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=6";
+import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=6";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));

@@ -8,7 +8,7 @@
 // x popularidade), Collins (Nível 5), Porter (escolher o que não fazer),
 // White e Lippitt / Chiavenato (estilos autocrático, democrático e liberal).
 
-import { FUNCIONARIOS, RAMO, MATURIDADE, ESTILOS, NINGUEM } from "../data.js";
+import { FUNCIONARIOS, RAMO, MATURIDADE, ESTILOS, NINGUEM } from "../data.js?v=6";
 
 // ---------------------------------------------------------------------------
 // Dificuldade e peso
