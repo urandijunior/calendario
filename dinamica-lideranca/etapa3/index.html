@@ -6,7 +6,7 @@
 <title>Etapa 3 · O ano seguinte — Dinâmica de Liderança</title>
 <meta name="theme-color" content="#f7efdd" />
 <meta name="description" content="Etapa 3 da dinâmica de liderança: a equipe que você montou enfrenta um cenário novo." />
-<link rel="stylesheet" href="style3.css?v=3" />
+<link rel="stylesheet" href="style3.css?v=4" />
 </head>
 <body>
 
@@ -57,7 +57,7 @@
     <p class="dica">Use <b>o mesmo nome</b> que você usou na Etapa 2. É por ele que o aplicativo encontra a equipe e o líder que você escolheu.</p>
     <div class="cartao">
       <label>Código da sala
-        <input type="text" id="in-sala" maxlength="6" autocomplete="off" inputmode="text" placeholder="Ex.: 7Y5TZ4" style="text-transform:uppercase" />
+        <input type="text" id="in-sala" maxlength="6" autocomplete="off" inputmode="text" placeholder="6 letras e números" style="text-transform:uppercase" />
       </label>
       <label>Seu nome
         <input type="text" id="in-nome" maxlength="60" autocomplete="off" placeholder="Nome e sobrenome, como na Etapa 2" />
@@ -180,7 +180,7 @@
     <h1>🔒 Área do professor</h1>
     <div class="cartao">
       <label>PIN <input type="password" id="in-pin" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••" /></label>
-      <label>Código da sala <input type="text" id="in-pin-sala" maxlength="6" autocomplete="off" placeholder="Ex.: 7Y5TZ4" style="text-transform:uppercase" /></label>
+      <label>Código da sala <input type="text" id="in-pin-sala" maxlength="6" autocomplete="off" placeholder="6 letras e números" style="text-transform:uppercase" /></label>
       <button class="btn-primario" id="btn-pin">Entrar</button>
       <p class="erro" id="erro-pin"></p>
     </div>
@@ -216,6 +216,7 @@
         <button class="btn-vazado" id="btn-csv">⬇ CSV</button>
       </div>
       <p class="dica">Abrir libera o cenário para quem já está esperando. Encerrar impede novos envios; quem estiver respondendo consegue terminar o que já abriu.</p>
+      <div id="prof-prontidao"></div>
     </div>
 
     <div class="cartao">
@@ -274,6 +275,6 @@
 
 <div id="aviso" class="aviso hidden"></div>
 
-<script type="module" src="ui3.js?v=3"></script>
+<script type="module" src="ui3.js?v=4"></script>
 </body>
 </html>

@@ -137,7 +137,7 @@ export const liberarRefazer = (sala, alunoId) =>
 // Aluno
 // ---------------------------------------------------------------------------
 /** Marca o início. ramo/mao/lider vêm da Etapa 2; para o aluno avulso, vêm da escolha dele. */
-export async function iniciarAluno(sala, alunoId, { ramo, mao, lider, nomeDigitado, avulso = false }) {
+export async function iniciarAluno(sala, alunoId, { ramo, mao, lider, nomeDigitado, avulso = false, incompleto = false }) {
   await garantirLogin();
   estado.alunoId = alunoId;
   await updateDoc(refAluno(sala, alunoId), {
@@ -146,6 +146,7 @@ export async function iniciarAluno(sala, alunoId, { ramo, mao, lider, nomeDigita
     "etapa3.mao": mao,
     "etapa3.lider": lider || null,
     "etapa3.avulso": !!avulso,
+    "etapa3.incompleto": !!incompleto,
     "etapa3.nomeDigitado": nomeDigitado || "",
     "etapa3.aparelhoUid": estado.uid,
     "etapa3.iniciadoMs": agora(),

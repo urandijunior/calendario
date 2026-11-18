@@ -161,6 +161,9 @@ $("#btn-sem-nome").addEventListener("click", () => {
 function prepararConfirmacao(aluno, aproximado) {
   E.aluno = aluno; E.alunoId = aluno.uid;
   E.ramo = aluno.etapa3?.ramo || aluno.ramo;
+  // Quem não chegou a fechar a negociação na Etapa 2 não tem equipe própria:
+  // entra com a equipe ideal do ramo, e isso é dito na tela, não escondido.
+  E.semEquipe = !aluno.etapa3?.mao && !(aluno.maoFinal || []).length;
   E.mao = (aluno.etapa3?.mao || aluno.maoFinal || D.RAMO[E.ramo]?.idsEquipe || []).filter((x) => D.FUNCIONARIOS[x]);
   E.lider = aluno.etapa3?.lider || aluno.liderEscolhido || null;
   E.avulso = !!aluno.etapa3?.avulso;
@@ -173,10 +176,11 @@ function prepararConfirmacao(aluno, aproximado) {
     <p class="nome-grande">${esc(aluno.nome)}</p>
     <div class="ramo-linha"><span class="ic">${r.icone}</span><span>${esc(r.nome)} — ${esc(r.empresa.split(" · ")[0])}</span></div>
     ${aproximado ? `<div class="box-info">Encontrei este registro a partir do nome que você digitou. Confirme se é você antes de continuar.</div>` : ""}
-    <h3>A sua equipe final na Etapa 2</h3>
+    ${E.semEquipe ? `<div class="box-info"><b>Você não chegou a fechar a sua equipe na Etapa 2.</b> Para poder fazer este exercício, você entra com a <b>equipe ideal</b> deste ramo. O professor vê isso no painel.</div>` : ""}
+    <h3>${E.semEquipe ? "A equipe com que você vai jogar" : "A sua equipe final na Etapa 2"}</h3>
     <div class="cartas">${E.mao.map((id) => cartaEquipe(id, E.lider, E.ramo)).join("")}</div>
-    <h3>O líder que você escolheu</h3>
-    <p>${lid ? `<b>${esc(lid.nome)}</b> — ${esc(lid.cargo)}` : "<b>Você não indicou um líder.</b> Isso vai aparecer no exercício."}</p>
+    <h3>${E.semEquipe ? "Líder" : "O líder que você escolheu"}</h3>
+    <p>${lid ? `<b>${esc(lid.nome)}</b> — ${esc(lid.cargo)}` : "<b>Nenhum líder indicado na Etapa 2.</b> A questão sobre o papel do líder vai levar isso em conta."}</p>
     ${aluno.etapa3?.status === "concluido" ? `<div class="box-info"><b>Atenção:</b> este registro já concluiu a Etapa 3. Se não foi você, escolha outro nome. Se foi, fale com o professor.</div>` : ""}`;
   mostrar("tela-confirmar");
 }
@@ -188,7 +192,7 @@ $("#btn-sou-eu").addEventListener("click", async () => {
   $("#btn-sou-eu").disabled = true;
   try {
     await A.sincronizarRelogio(E.sala);
-    await A.iniciarAluno(E.sala, E.alunoId, { ramo: E.ramo, mao: E.mao, lider: E.lider, nomeDigitado: E.nomeDigitado, avulso: E.avulso });
+    await A.iniciarAluno(E.sala, E.alunoId, { ramo: E.ramo, mao: E.mao, lider: E.lider, nomeDigitado: E.nomeDigitado, avulso: E.avulso, incompleto: E.semEquipe });
     // retoma o que já havia sido respondido (se o aluno recarregou a página)
     const e3 = E.aluno.etapa3 || {};
     E.respostas = { ...(e3.respostas || {}) };
@@ -244,8 +248,8 @@ function abrirCenario() {
   }).join("");
   $("#cen-fontes").innerHTML = cen.fontes.map((f) => `<li>${esc(f)}</li>`).join("");
   $("#equipe-cartas").innerHTML = E.mao.map((id) => cartaEquipe(id, E.lider, E.ramo)).join("");
-  $("#equipe-dica").innerHTML = E.avulso
-    ? "Você recebeu a equipe ideal deste ramo porque não participou da Etapa 2."
+  $("#equipe-dica").innerHTML = (E.avulso || E.semEquipe)
+    ? "Você recebeu a equipe ideal deste ramo porque não fechou a sua equipe na Etapa 2. Quatro das doze questões são sobre ela."
     : `Esta é a equipe que <b>você</b> montou trocando cartas na Etapa 2. Quatro das doze questões são sobre ela.`;
   const fim = E.salaDados?.etapa3?.fimMs;
   $("#cen-tempo").innerHTML = fim ? ` O cronômetro da turma termina em <b>${mmss(fim - A.agora())}</b>.` : "";
@@ -536,6 +540,7 @@ function corrigirAluno(a) {
 }
 
 function renderPainel() {
+  renderProntidao();
   const comEtapa = profAlunos.filter((a) => a.etapa3?.status);
   const fazendo = comEtapa.filter((a) => a.etapa3.status === "fazendo");
   const concluidos = comEtapa.filter((a) => a.etapa3.status === "concluido");
@@ -591,7 +596,7 @@ function renderPainel() {
       const e3 = a.etapa3, r = c.res;
       const fim = e3.status === "concluido";
       return `<tr${fim ? "" : ' class="destaque"'}>
-        <td class="nome-col">${esc(a.nome)}${e3.avulso ? ' <span class="pill avulso">avulso</span>' : ""}</td>
+        <td class="nome-col">${esc(a.nome)}${e3.avulso ? ' <span class="pill avulso">avulso</span>' : ""}${e3.incompleto && !e3.avulso ? ' <span class="pill avulso">equipe ideal</span>' : ""}</td>
         <td>${esc(D.RAMO[e3.ramo || a.ramo]?.nome || "—")}</td>
         <td class="nota">${fim ? r.nota.toFixed(1) : "—"}</td>
         <td>${fim ? `${r.pontos.toFixed(1)}/${r.pontosTotais}${r.excluidas ? "*" : ""}` : "—"}</td>
@@ -631,6 +636,24 @@ function renderPainel() {
     : `<p class="dica">Nenhuma resposta aberta enviada ainda.</p>`;
 }
 
+/** Antes de abrir: quantos da turma realmente concluíram a Etapa 2. */
+function renderProntidao() {
+  const n = profAlunos.length;
+  if (!n) { $("#prof-prontidao").innerHTML = `<div class="box-info">Esta sala ainda não tem alunos.</div>`; return; }
+  const prontos = profAlunos.filter((a) => (a.maoFinal || []).length && a.liderEscolhido);
+  const semLider = profAlunos.filter((a) => (a.maoFinal || []).length && !a.liderEscolhido);
+  const semEquipe = profAlunos.filter((a) => !(a.maoFinal || []).length);
+  if (!semLider.length && !semEquipe.length) {
+    $("#prof-prontidao").innerHTML = `<div class="box-info"><b>Turma pronta:</b> os ${n} alunos concluíram a Etapa 2, então cada um entra com a equipe e o líder que escolheu.</div>`;
+    return;
+  }
+  const li = [];
+  if (prontos.length) li.push(`<li><b>${prontos.length}</b> concluíram a Etapa 2 — entram com a equipe e o líder que escolheram;</li>`);
+  if (semLider.length) li.push(`<li><b>${semLider.length}</b> fecharam a equipe mas não indicaram líder — entram com a equipe própria e a questão do líder se adapta;</li>`);
+  if (semEquipe.length) li.push(`<li><b>${semEquipe.length}</b> não fecharam equipe — entram com a <b>equipe ideal</b> do ramo, avisados na tela e marcados na tabela.</li>`);
+  $("#prof-prontidao").innerHTML = `<div class="box-info"><b>Prontidão da turma (${n} alunos):</b><ul style="margin:6px 0 0;padding-left:20px">${li.join("")}</ul></div>`;
+}
+
 $("#btn-ordenar").addEventListener("click", () => {
   E.profOrdem = E.profOrdem === "nota" ? "nome" : "nota";
   $("#btn-ordenar").textContent = `ordenar por ${E.profOrdem === "nota" ? "nome" : "nota"}`;
@@ -652,7 +675,7 @@ $("#btn-csv").addEventListener("click", () => {
   const dados = profAlunos.filter((a) => a.etapa3?.status).map((a) => ({ a, c: corrigirAluno(a) })).filter((x) => x.c);
   const cab = ["Nome", "Ramo", "Situacao", "Nota (0-10)", "Pontos", `Total (${PONTOS_TOTAIS})`, "Acertos (12)",
     "Acertos mercado (8)", "Acertos equipe (4)", "Zeradas pela trava", "Saidas do app",
-    "Lider certo na Etapa 2", "Equipe final Etapa 2 (de 6)", "Avulso", "Discursiva",
+    "Lider certo na Etapa 2", "Equipe final Etapa 2 (de 6)", "Avulso", "Entrou com equipe ideal", "Discursiva",
     ...Array.from({ length: TOTAL_Q }, (_, k) => `Q${k + 1}`)];
   const linhas = dados.map(({ a, c }) => {
     const e3 = a.etapa3, r = c.res;
@@ -661,7 +684,7 @@ $("#btn-csv").addEventListener("click", () => {
       r.pontos.toFixed(2).replace(".", ","), String(PONTOS_TOTAIS).replace(".", ","),
       r.acertos, r.acertosFixas, r.acertosPessoais, r.anuladas, Number(e3.saidas) || 0,
       a.liderCerto == null ? "" : a.liderCerto ? "sim" : "nao",
-      a.equipeFinal ?? "", e3.avulso ? "sim" : "nao",
+      a.equipeFinal ?? "", e3.avulso ? "sim" : "nao", e3.incompleto ? "sim" : "nao",
       String(e3.discursiva || "").replace(/\s+/g, " "),
       ...r.itens.map((it) => (it.anulada ? "zerada" : it.acertou ? "1" : "0"))];
   });
