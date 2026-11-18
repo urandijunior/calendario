@@ -12,7 +12,7 @@
 
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
-  getFirestore, doc, getDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
+  getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
 } from "../firebase.js";
 import { firebaseConfig } from "../firebase-config.js";
 
@@ -136,6 +136,27 @@ export const liberarRefazer = (sala, alunoId) =>
 // ---------------------------------------------------------------------------
 // Aluno
 // ---------------------------------------------------------------------------
+/**
+ * Aluno que não está na sala da Etapa 2 (faltou à aula anterior).
+ * As regras do Firestore só permitem CRIAR o documento de aluno cujo id é o próprio uid
+ * — por isso o avulso é gravado com o uid do aparelho, e não com um id inventado.
+ * Devolve {uid, jaExiste}: se este aparelho já tem registro na sala, nada é sobrescrito.
+ */
+export async function criarAvulso(sala, { nome, ramo, mao }) {
+  const uid = await garantirLogin();
+  const atual = await getDoc(refAluno(sala, uid));
+  if (atual.exists()) return { uid, jaExiste: true, dados: atual.data() };
+  await setDoc(refAluno(sala, uid), {
+    nome, ramo, fase: "espera", trocas: 0, entrouEm: serverTimestamp(),
+    etapa3: {
+      status: "fazendo", ramo, mao, lider: null, avulso: true, incompleto: false,
+      nomeDigitado: nome, aparelhoUid: uid, iniciadoMs: agora(), i: 0, respostas: {}, anuladas: {}, perdoadas: {}, saidas: 0,
+    },
+  }, { merge: true });
+  estado.alunoId = uid;
+  return { uid, jaExiste: false };
+}
+
 /** Marca o início. ramo/mao/lider vêm da Etapa 2; para o aluno avulso, vêm da escolha dele. */
 export async function iniciarAluno(sala, alunoId, { ramo, mao, lider, nomeDigitado, avulso = false, incompleto = false }) {
   await garantirLogin();

@@ -146,14 +146,22 @@ $("#btn-sem-nome").addEventListener("click", () => {
   }));
   $("#btn-avulso-ok").onclick = async () => {
     if (!sel) return;
-    // aluno avulso: recebe a equipe ideal do ramo e nenhum líder pré-escolhido
+    $("#btn-avulso-ok").disabled = true;
     const r = D.RAMO[sel];
-    E.avulso = true; E.ramo = sel; E.mao = [...r.idsEquipe]; E.lider = null;
-    E.alunoId = `et3-${A.normalizar(E.nomeDigitado).replace(/ /g, "-").slice(0, 40)}-${Date.now().toString(36)}`;
-    E.aluno = { nome: E.nomeDigitado, ramo: sel };
     try {
-      await A.iniciarAluno(E.sala, E.alunoId, { ramo: sel, mao: E.mao, lider: null, nomeDigitado: E.nomeDigitado, avulso: true });
-    } catch (e) { return aviso("Não foi possível registrar. Chame o professor."); }
+      const res = await A.criarAvulso(E.sala, { nome: E.nomeDigitado, ramo: sel, mao: [...r.idsEquipe] });
+      if (res.jaExiste) {
+        // este aparelho já tem registro na sala: usa o registro real em vez de sobrescrevê-lo
+        aviso("Este aparelho já tem um registro nesta sala. Confirme se é você.", 6000);
+        $("#box-avulso").classList.add("hidden");
+        return prepararConfirmacao({ uid: res.uid, ...res.dados }, true);
+      }
+      E.avulso = true; E.semEquipe = false; E.ramo = sel; E.mao = [...r.idsEquipe]; E.lider = null;
+      E.alunoId = res.uid; E.aluno = { uid: res.uid, nome: E.nomeDigitado, ramo: sel };
+      E.respostas = {}; E.anuladas = {}; E.saidas = 0; E.i = 0;
+    } catch (e) {
+      return aviso("Não foi possível registrar. Chame o professor.");
+    } finally { $("#btn-avulso-ok").disabled = false; }
     salvarSessao(); seguirParaEtapa();
   };
 });
