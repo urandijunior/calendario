@@ -251,24 +251,30 @@ export function questoesPessoais(cen, ramoCod, mao, liderId, semente = "x") {
 // Correção e nota
 //   respostas: { q1: "b", ... } · anuladas: Set de ids zerados pela trava
 // ---------------------------------------------------------------------------
-export function corrigir(questoes, respostas, anuladas = new Set()) {
+export function corrigir(questoes, respostas, anuladas = new Set(), perdoadas = new Set()) {
   const itens = questoes.map((q) => {
-    const anulada = anuladas.has(q.id);
+    const perdoada = perdoadas.has(q.id);
+    const anulada = anuladas.has(q.id) && !perdoada;
     const marcada = respostas?.[q.id] ?? null;
-    const acertou = !anulada && marcada === q.certa;
-    return { id: q.id, dif: q.dif, peso: DIFIC[q.dif].peso, pessoal: !!q.pessoal, anulada, marcada, certa: q.certa, acertou };
+    // Perdoada e sem resposta: a trava tirou a questão antes de o aluno poder responder,
+    // então ela sai da conta em vez de valer zero — o aluno é avaliado sobre o que sobrou.
+    const excluida = perdoada && marcada == null;
+    const acertou = !anulada && !excluida && marcada === q.certa;
+    return { id: q.id, dif: q.dif, peso: DIFIC[q.dif].peso, pessoal: !!q.pessoal, anulada, perdoada, excluida, marcada, certa: q.certa, acertou };
   });
   const pontos = itens.reduce((s, i) => s + (i.acertou ? i.peso : 0), 0);
+  const pontosValidos = itens.reduce((s, i) => s + (i.excluida ? 0 : i.peso), 0);
   const acertos = itens.filter((i) => i.acertou).length;
   const fixas = itens.filter((i) => !i.pessoal);
   const pessoais = itens.filter((i) => i.pessoal);
   return {
     itens, acertos, total: itens.length,
     pontos: Math.round(pontos * 100) / 100,
-    pontosTotais: PONTOS_TOTAIS,
-    nota: Math.round((pontos / PONTOS_TOTAIS) * 1000) / 100, // 0 a 10
+    pontosTotais: Math.round(pontosValidos * 100) / 100,
+    nota: pontosValidos > 0 ? Math.round((pontos / pontosValidos) * 1000) / 100 : 0, // 0 a 10
     acertosFixas: fixas.filter((i) => i.acertou).length, totalFixas: fixas.length,
     acertosPessoais: pessoais.filter((i) => i.acertou).length, totalPessoais: pessoais.length,
     anuladas: itens.filter((i) => i.anulada).length,
+    excluidas: itens.filter((i) => i.excluida).length,
   };
 }

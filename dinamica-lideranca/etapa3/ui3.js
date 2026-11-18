@@ -530,8 +530,9 @@ function corrigirAluno(a) {
   const lider = e3.lider || a.liderEscolhido || null;
   const qs = [...cen.questoes, ...questoesPessoais(cen, ramo, mao, lider, a.uid)];
   const perdoadas = e3.perdoadas || {};
-  const anul = new Set(Object.keys(e3.anuladas || {}).filter((k) => e3.anuladas[k] && !perdoadas[k]));
-  return { qs, res: corrigir(qs, e3.respostas || {}, anul), anulBrutas: Object.keys(e3.anuladas || {}).filter((k) => e3.anuladas[k]), perdoadas };
+  const anul = new Set(Object.keys(e3.anuladas || {}).filter((k) => e3.anuladas[k]));
+  const perd = new Set(Object.keys(perdoadas).filter((k) => perdoadas[k]));
+  return { qs, res: corrigir(qs, e3.respostas || {}, anul, perd), anulBrutas: [...anul], perdoadas };
 }
 
 function renderPainel() {
@@ -593,11 +594,11 @@ function renderPainel() {
         <td class="nome-col">${esc(a.nome)}${e3.avulso ? ' <span class="pill avulso">avulso</span>' : ""}</td>
         <td>${esc(D.RAMO[e3.ramo || a.ramo]?.nome || "—")}</td>
         <td class="nota">${fim ? r.nota.toFixed(1) : "—"}</td>
-        <td>${fim ? `${r.pontos.toFixed(1)}/${PONTOS_TOTAIS}` : "—"}</td>
+        <td>${fim ? `${r.pontos.toFixed(1)}/${r.pontosTotais}${r.excluidas ? "*" : ""}` : "—"}</td>
         <td>${fim ? `${r.acertos}/12` : `${Object.keys(e3.respostas || {}).length}/12`}</td>
         <td>${fim ? `${r.acertosFixas}/8` : "—"}</td>
         <td>${fim ? `${r.acertosPessoais}/4` : "—"}</td>
-        <td>${r.anuladas ? `<span class="pill nao">${r.anuladas}</span>` : "0"}</td>
+        <td>${r.anuladas ? `<span class="pill nao">${r.anuladas}</span>` : "0"}${r.excluidas ? ` <span class="pill ok">${r.excluidas} perd.</span>` : ""}</td>
         <td>${a.liderCerto == null ? "—" : a.liderCerto ? '<span class="pill ok">líder certo</span>' : '<span class="pill nao">líder errado</span>'}</td>
         <td>${fim ? '<span class="pill ok">concluiu</span>' : `<span class="pill">na questão ${Math.min((e3.i || 0) + 1, TOTAL_Q)}</span>`}</td></tr>`;
     }).join("")}</tbody></table>` : `<p class="dica">Ninguém entrou na Etapa 3 ainda.</p>`;
