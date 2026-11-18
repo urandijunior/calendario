@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Etapa 3 · O ano seguinte — Dinâmica de Liderança</title>
+<meta name="theme-color" content="#f7efdd" />
+<meta name="description" content="Etapa 3 da dinâmica de liderança: a equipe que você montou enfrenta um cenário novo." />
+<link rel="stylesheet" href="style3.css" />
+</head>
+<body>
+
+<header class="topo" id="topo">
+  <div class="topo-id">
+    <span class="selo">Etapa 3</span>
+    <span class="topo-tit" id="topo-tit">O ano seguinte</span>
+  </div>
+  <div class="topo-dir">
+    <span class="passo-pill hidden" id="passo-pill"></span>
+    <span class="relogio hidden" id="relogio" aria-live="off">60:00</span>
+  </div>
+</header>
+
+<main id="app">
+
+  <!-- ===================== 1. AVISO DA TRAVA ===================== -->
+  <section class="tela ativa" id="tela-aviso">
+    <div class="heroi" id="heroi-aviso"></div>
+    <div class="heroi-txt">
+      <span class="kick">Administração · Gestão de Pessoas · 4º semestre</span>
+      <h1>Dezoito meses depois,<br />a sua equipe vai ser<br /><em>testada de novo.</em></h1>
+    </div>
+
+    <div class="cartao alerta-regras">
+      <h2>⚠️ Leia antes de começar</h2>
+      <p class="forte">Não saia deste aplicativo durante o exercício.</p>
+      <p>Se você trocar de aba, abrir outro aplicativo, olhar uma mensagem ou minimizar a tela por mais de 2 segundos:</p>
+      <ul class="lista-regras">
+        <li>a questão em que você estiver é <b>zerada</b>;</li>
+        <li>o aplicativo <b>passa automaticamente</b> para a questão seguinte;</li>
+        <li>a saída fica <b>registrada</b> e aparece no painel do professor.</li>
+      </ul>
+      <p>Não há como recuperar a questão perdida e não é possível voltar para uma questão já respondida.</p>
+      <div class="box-info">
+        <b>Antes de tocar em continuar:</b> deixe o celular no silencioso, feche o que estiver aberto e garanta que vai conseguir ficar cerca de <b>1 hora</b> sem sair daqui.
+      </div>
+      <button class="btn-primario grande" id="btn-aceitar">Entendi e aceito as regras</button>
+    </div>
+  </section>
+
+  <!-- ===================== 2. ENTRAR ===================== -->
+  <section class="tela" id="tela-entrar">
+    <div class="heroi mini" id="heroi-entrar"></div>
+    <h1>Entrar na Etapa 3</h1>
+    <p class="dica">Use <b>o mesmo nome</b> que você usou na Etapa 2. É por ele que o aplicativo encontra a equipe e o líder que você escolheu.</p>
+    <div class="cartao">
+      <label>Código da sala
+        <input type="text" id="in-sala" maxlength="6" autocomplete="off" inputmode="text" placeholder="Ex.: 7Y5TZ4" style="text-transform:uppercase" />
+      </label>
+      <label>Seu nome
+        <input type="text" id="in-nome" maxlength="60" autocomplete="off" placeholder="Nome e sobrenome, como na Etapa 2" />
+      </label>
+      <button class="btn-primario" id="btn-entrar">Continuar</button>
+      <p class="erro" id="erro-entrar"></p>
+    </div>
+
+    <div class="cartao hidden" id="box-lista-nomes">
+      <h2>Qual destes nomes é o seu?</h2>
+      <p class="dica">Não achei um nome igual ao que você digitou. Procure o seu na lista da turma.</p>
+      <input type="text" id="filtro-nomes" placeholder="🔎 Filtrar" autocomplete="off" />
+      <div id="lista-nomes" class="lista-nomes"></div>
+      <button class="btn-vazado" id="btn-sem-nome">Não estou na lista — não fiz a Etapa 2</button>
+    </div>
+
+    <div class="cartao hidden" id="box-avulso">
+      <h2>Você não participou da Etapa 2</h2>
+      <p class="dica">Sem problema: escolha um ramo e você recebe a <b>equipe ideal</b> dele para fazer o exercício. O professor vê no painel que o seu caso foi este.</p>
+      <div id="grade-ramos" class="grade-ramos"></div>
+      <button class="btn-primario" id="btn-avulso-ok" disabled>Entrar com este ramo</button>
+    </div>
+
+    <p class="rodape-link"><button class="link" id="btn-area-prof">Área do professor</button></p>
+  </section>
+
+  <!-- ===================== 3. CONFIRMAR IDENTIDADE ===================== -->
+  <section class="tela" id="tela-confirmar">
+    <h1>É você?</h1>
+    <div class="cartao confirma" id="cartao-confirma"></div>
+    <div class="linha">
+      <button class="btn-primario" id="btn-sou-eu">Sim, sou eu</button>
+      <button class="btn-vazado" id="btn-nao-sou">Não, voltar</button>
+    </div>
+  </section>
+
+  <!-- ===================== 4. ESPERA ===================== -->
+  <section class="tela" id="tela-espera">
+    <div class="heroi mini" id="heroi-espera"></div>
+    <div class="cartao">
+      <h2 id="espera-tit">⏳ Aguardando o professor abrir a Etapa 3</h2>
+      <p class="dica" id="espera-txt">Deixe esta tela aberta. Assim que o professor liberar, o cenário aparece sozinho.</p>
+      <p class="dica" id="espera-quem"></p>
+    </div>
+  </section>
+
+  <!-- ===================== 5. CENÁRIO ===================== -->
+  <section class="tela" id="tela-cenario">
+    <div class="heroi" id="heroi-cenario"></div>
+    <div class="heroi-txt">
+      <span class="kick" id="cen-kick"></span>
+      <h1 id="cen-titulo"></h1>
+      <p class="heroi-sub" id="cen-sub"></p>
+    </div>
+
+    <div class="cartao cenario-texto" id="cen-corpo"></div>
+
+    <details class="cartao fontes">
+      <summary>Fontes dos dados deste cenário</summary>
+      <ul id="cen-fontes"></ul>
+    </details>
+
+    <div class="cartao equipe-resumo">
+      <h2>A equipe com que você vai enfrentar isso</h2>
+      <p class="dica" id="equipe-dica"></p>
+      <div id="equipe-cartas" class="cartas"></div>
+    </div>
+
+    <div class="cartao box-info">
+      <b>Como funciona:</b> 12 questões, uma por tela, sem voltar atrás. Depois, uma pergunta aberta de até 10 linhas.
+      Você <b>não verá a sua nota</b> — o resultado é apresentado pelo professor.
+      <span id="cen-tempo"></span>
+    </div>
+    <button class="btn-primario grande" id="btn-comecar">Começar as 12 questões</button>
+  </section>
+
+  <!-- ===================== 6. QUESTÕES ===================== -->
+  <section class="tela" id="tela-questao">
+    <div class="faixa" id="faixa-questao"></div>
+    <div class="barra-passos" id="barra-passos"></div>
+    <div class="cartao questao" id="cartao-questao"></div>
+    <div class="linha fim">
+      <span class="dica" id="aviso-sem-volta">Sem volta: ao avançar, a resposta é definitiva.</span>
+      <button class="btn-primario" id="btn-avancar" disabled>Próxima →</button>
+    </div>
+  </section>
+
+  <!-- ===================== 7. DISCURSIVA ===================== -->
+  <section class="tela" id="tela-discursiva">
+    <div class="faixa" id="faixa-disc"></div>
+    <h1>Última parte: a sua palavra</h1>
+    <div class="cartao">
+      <h2>Quais foram as suas maiores dificuldades neste exercício?</h2>
+      <p class="dica">Pense na equipe que você montou na Etapa 2: o que faltou nela? O que você faria diferente na hora de trocar as cartas e de escolher o líder? <b>Até 10 linhas.</b></p>
+      <textarea id="in-discursiva" rows="11" maxlength="1000" placeholder="Escreva aqui..."></textarea>
+      <div class="linha fim">
+        <span class="contador" id="contador-linhas">0 de 10 linhas</span>
+        <button class="btn-primario" id="btn-enviar" disabled>Enviar respostas</button>
+      </div>
+      <p class="erro" id="erro-disc"></p>
+    </div>
+  </section>
+
+  <!-- ===================== 8. FIM ===================== -->
+  <section class="tela" id="tela-fim">
+    <div class="heroi mini" id="heroi-fim"></div>
+    <div class="cartao fim-box">
+      <span class="fim-icone">✔</span>
+      <h1>Respostas enviadas</h1>
+      <p>Obrigado. O resultado desta etapa será apresentado pelo professor em sala — nem a nota nem o gabarito aparecem aqui.</p>
+      <p class="dica" id="fim-resumo"></p>
+    </div>
+  </section>
+
+  <!-- ===================== PROFESSOR ===================== -->
+  <section class="tela" id="tela-prof-pin">
+    <button class="link voltar" data-volta="tela-entrar">← voltar</button>
+    <h1>🔒 Área do professor</h1>
+    <div class="cartao">
+      <label>PIN <input type="password" id="in-pin" inputmode="numeric" maxlength="8" autocomplete="off" placeholder="••••" /></label>
+      <label>Código da sala <input type="text" id="in-pin-sala" maxlength="6" autocomplete="off" placeholder="Ex.: 7Y5TZ4" style="text-transform:uppercase" /></label>
+      <button class="btn-primario" id="btn-pin">Entrar</button>
+      <p class="erro" id="erro-pin"></p>
+    </div>
+  </section>
+
+  <section class="tela" id="tela-prof">
+    <div class="painel-cabeca">
+      <div>
+        <span class="kick">Painel docente · Etapa 3</span>
+        <h1 id="prof-sala">—</h1>
+        <span class="turma-pill" id="prof-turma"></span>
+      </div>
+      <div class="painel-estado">
+        <span id="prof-status" class="estado-pill">—</span>
+        <span id="prof-relogio" class="relogio grande">--:--</span>
+      </div>
+    </div>
+
+    <div class="cartao">
+      <h2>Controle da etapa</h2>
+      <div class="linha">
+        <label class="inline">Duração
+          <select id="in-duracao">
+            <option value="45">45 minutos</option>
+            <option value="60" selected>60 minutos</option>
+            <option value="75">75 minutos</option>
+            <option value="90">90 minutos</option>
+          </select>
+        </label>
+        <button class="btn-primario" id="btn-abrir">Abrir a Etapa 3 para a turma</button>
+        <button class="btn-vazado" id="btn-mais-tempo">+5 minutos</button>
+        <button class="btn-perigo" id="btn-encerrar">Encerrar</button>
+        <button class="btn-vazado" id="btn-csv">⬇ CSV</button>
+      </div>
+      <p class="dica">Abrir libera o cenário para quem já está esperando. Encerrar impede novos envios; quem estiver respondendo consegue terminar o que já abriu.</p>
+    </div>
+
+    <div class="cartao">
+      <h2>Ao vivo</h2>
+      <div class="numeros" id="prof-numeros"></div>
+      <div class="barra-fases"><div class="f-a" id="bar-a"></div><div class="f-b" id="bar-b"></div><div class="f-c" id="bar-c"></div></div>
+    </div>
+
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>🚨 Saídas do aplicativo</h2><span class="dica" id="prof-saidas-resumo"></span></div>
+      <p class="dica">Cada saída zerou a questão em que o aluno estava. Use <b>perdoar</b> se a saída foi justificada (ligação, notificação, queda de conexão).</p>
+      <div id="prof-saidas"></div>
+    </div>
+
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>Resultados</h2><button class="link" id="btn-ordenar">ordenar por nota</button></div>
+      <div id="prof-tabela" class="tabela-rolagem"></div>
+    </div>
+
+    <div class="cartao">
+      <h2>Desempenho por questão</h2>
+      <p class="dica">Percentual de acerto da turma. As 4 últimas são personalizadas: cada aluno respondeu sobre a própria equipe.</p>
+      <div id="prof-questoes"></div>
+    </div>
+
+    <div class="cartao">
+      <div class="cartao-cabeca"><h2>🗣 O que eles disseram</h2><span class="dica" id="prof-disc-resumo"></span></div>
+      <div id="prof-palavras" class="palavras"></div>
+      <div id="prof-discursivas"></div>
+    </div>
+
+    <p class="rodape-link"><button class="link" id="btn-sair-prof">Sair do painel</button></p>
+  </section>
+</main>
+
+<!-- ===================== OVERLAY DA TRAVA ===================== -->
+<div class="overlay hidden" id="overlay-trava" role="alertdialog" aria-modal="true" aria-labelledby="trava-tit">
+  <div class="overlay-box">
+    <span class="trava-icone">🚨</span>
+    <h1 id="trava-tit">Você saiu do aplicativo</h1>
+    <p class="trava-msg" id="trava-msg"></p>
+    <p class="trava-contagem" id="trava-contagem"></p>
+    <p class="trava-forte">NÃO FAÇA ISSO DE NOVO.</p>
+    <button class="btn-primario grande" id="btn-trava-ok">Continuar</button>
+  </div>
+</div>
+
+<div class="overlay hidden" id="overlay-tempo" role="alertdialog" aria-modal="true">
+  <div class="overlay-box neutro">
+    <span class="trava-icone">⏱</span>
+    <h1>O tempo acabou</h1>
+    <p>As respostas que você já marcou foram enviadas.</p>
+    <button class="btn-primario grande" id="btn-tempo-ok">Entendi</button>
+  </div>
+</div>
+
+<div id="aviso" class="aviso hidden"></div>
+
+<script type="module" src="ui3.js"></script>
+</body>
+</html>
