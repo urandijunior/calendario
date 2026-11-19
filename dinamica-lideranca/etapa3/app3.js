@@ -12,9 +12,10 @@
 
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
-} from "../firebase.js?v=8";
-import { firebaseConfig } from "../firebase-config.js?v=8";
+} from "../firebase.js?v=9";
+import { firebaseConfig } from "../firebase-config.js?v=9";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -23,16 +24,59 @@ const db = getFirestore(app);
 export const estado = { uid: null, sala: null, alunoId: null, offset: 0 };
 export const agora = () => Date.now() + estado.offset;
 
+// Identidade do professor. O aluno entra anônimo (não precisa de conta); o professor
+// pode entrar com e-mail e senha, e aí o painel o reconhece em QUALQUER computador —
+// o uid anônimo muda de navegador para navegador, o e-mail não.
+export const professor = { email: null };
+export const ehProfessorLogado = () => !!professor.email;
+
 let loginPromise = null;
 export function garantirLogin() {
   if (estado.uid) return Promise.resolve(estado.uid);
   if (!loginPromise) {
     loginPromise = new Promise((resolve, reject) => {
-      const off = onAuthStateChanged(auth, (u) => { if (u) { estado.uid = u.uid; off(); resolve(u.uid); } });
-      signInAnonymously(auth).catch(reject);
+      // Não entra anônimo às cegas: se já existe uma sessão de professor guardada
+      // neste navegador, entrar anônimo aqui a derrubaria.
+      const off = onAuthStateChanged(auth, (u) => {
+        if (u) {
+          estado.uid = u.uid;
+          professor.email = u.isAnonymous ? null : u.email;
+          off();
+          resolve(u.uid);
+        } else {
+          signInAnonymously(auth).catch(reject);
+        }
+      });
     });
   }
   return loginPromise;
+}
+
+export async function entrarProfessor(email, senha) {
+  try {
+    await signInWithEmailAndPassword(auth, email, senha);
+  } catch (e) {
+    const semConta = e?.code === "auth/user-not-found" || e?.code === "auth/invalid-credential";
+    if (!semConta) throw e;
+    try {
+      await createUserWithEmailAndPassword(auth, email, senha);
+    } catch (e2) {
+      // o e-mail já existe: então o que não bateu foi a senha
+      if (e2?.code === "auth/email-already-in-use") throw new Error("senha");
+      throw e2;
+    }
+  }
+  estado.uid = auth.currentUser.uid;
+  professor.email = auth.currentUser.email;
+  return estado.uid;
+}
+
+export async function sairProfessor() {
+  await signOut(auth);
+  estado.uid = null;
+  professor.email = null;
+  loginPromise = null;
+  return garantirLogin();
 }
 
 const refSala = (sala) => doc(db, "rooms", sala);

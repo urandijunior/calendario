@@ -1,11 +1,11 @@
 // ui3.js — Etapa 3: telas do aluno, trava de segurança e painel docente.
 
-import * as A from "./app3.js?v=8";
-import * as D from "../data.js?v=8";
-import { retrato } from "../arte.js?v=8";
-import { CENARIOS3 } from "./cenarios3.js?v=8";
-import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=8";
-import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=8";
+import * as A from "./app3.js?v=9";
+import * as D from "../data.js?v=9";
+import { retrato } from "../arte.js?v=9";
+import { CENARIOS3 } from "./cenarios3.js?v=9";
+import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=9";
+import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=9";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -524,14 +524,64 @@ function iniciarPainel() {
   }
 }
 
+function renderCaixaProf() {
+  let box = document.getElementById("caixa-prof");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "caixa-prof";
+    box.className = "caixa-prof";
+    $("#prof-prontidao").before(box);
+  }
+  if (A.ehProfessorLogado()) {
+    box.className = "caixa-prof conectado";
+    box.innerHTML = `<span>✓ Conectado como <b>${esc(A.professor.email)}</b> — você comanda a etapa de qualquer computador.</span> <button id="btn-prof-sair" class="btn-mini">sair</button>`;
+    document.getElementById("btn-prof-sair").onclick = async () => {
+      await A.sairProfessor();
+      renderPainelCabeca();
+    };
+    return;
+  }
+  box.className = "caixa-prof";
+  box.innerHTML = `
+    <details>
+      <summary>🔑 Entrar como professor — para comandar a etapa de qualquer computador</summary>
+      <div class="prof-form">
+        <p class="prof-dica">Sem isso, só o navegador em que a sala foi criada consegue abrir, encerrar e dar mais tempo. Na primeira vez, a conta é criada com o e-mail e a senha que você digitar aqui.</p>
+        <input id="prof-email" type="email" placeholder="seu e-mail" autocomplete="username">
+        <input id="prof-senha" type="password" placeholder="sua senha (6 ou mais caracteres)" autocomplete="current-password">
+        <button id="btn-prof-entrar">Entrar</button>
+        <p id="prof-msg" class="prof-msg"></p>
+      </div>
+    </details>`;
+  const entrar = async () => {
+    const msg = document.getElementById("prof-msg");
+    const em = document.getElementById("prof-email").value.trim();
+    const se = document.getElementById("prof-senha").value;
+    if (!em || se.length < 6) { msg.textContent = "Informe o e-mail e uma senha de 6 caracteres ou mais."; return; }
+    msg.textContent = "Entrando…";
+    try {
+      await A.entrarProfessor(em, se);
+      msg.textContent = "";
+      renderPainelCabeca();
+    } catch (e) {
+      msg.textContent = e?.message === "senha"
+        ? "Esse e-mail já tem conta aqui, mas a senha não confere."
+        : "Não deu certo (" + (e?.code || e?.message || "erro") + "). Confira o e-mail e a senha.";
+    }
+  };
+  document.getElementById("btn-prof-entrar").onclick = entrar;
+  document.getElementById("prof-senha").addEventListener("keydown", (ev) => { if (ev.key === "Enter") entrar(); });
+}
+
 function renderPainelCabeca() {
   const e3 = E.salaDados?.etapa3 || {};
   const dono = E.salaDados?.professorUid;
-  const souDono = !dono || dono === A.estado.uid;
+  const souDono = !dono || dono === A.estado.uid || A.ehProfessorLogado();
+  renderCaixaProf();
   let av = document.getElementById("aviso-dono");
   if (!souDono) {
     if (!av) { av = document.createElement("div"); av.id = "aviso-dono"; av.className = "box-info"; $("#prof-prontidao").before(av); }
-    av.innerHTML = "<b>⚠ Este não é o navegador que criou a sala.</b> Você consegue acompanhar tudo por aqui, mas <b>não consegue abrir, encerrar nem dar mais tempo</b>. Para comandar a etapa, abra o painel no mesmo computador e navegador em que criou a sala.";
+    av.innerHTML = "<b>⚠ Este não é o navegador que criou a sala.</b> Você acompanha tudo por aqui, mas <b>não consegue abrir, encerrar nem dar mais tempo</b>. Para liberar os comandos neste computador, use <b>Entrar como professor</b> logo acima.";
   } else if (av) av.remove();
   $("#btn-abrir").disabled = !souDono;
   $("#btn-encerrar").disabled = !souDono;
@@ -681,7 +731,7 @@ $("#btn-ordenar").addEventListener("click", () => {
   renderPainel();
 });
 
-const ERRO_DONO = "Só o navegador em que esta sala foi criada pode comandar a etapa. Abra o painel no mesmo computador e navegador que você usou para criar a sala.";
+const ERRO_DONO = "Este navegador não comanda esta sala. Use “Entrar como professor” no topo do painel — aí os comandos funcionam em qualquer computador.";
 const comandar = async (f, ok) => {
   try { await f(); aviso(ok); }
   catch (e) { aviso(e?.code === "permission-denied" ? ERRO_DONO : "Não foi possível. Verifique a internet.", 10000); }

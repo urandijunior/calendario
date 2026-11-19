@@ -156,7 +156,7 @@ button:focus-visible { outline: 3px solid var(--ocre); outline-offset: 2px; }
 
 label { display: block; font-size: 13px; font-weight: 700; color: var(--tinta-2); margin-bottom: 14px; }
 label.inline { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 0; }
-input[type="text"], input[type="password"], select, textarea {
+input[type="text"], input[type="password"], input[type="email"], select, textarea {
   display: block; width: 100%; margin-top: 5px; padding: 13px 14px;
   font-family: inherit; font-size: 16px; color: var(--tinta);
   background: #fffdf6; border: 1px solid var(--linha); border-radius: 11px;
@@ -316,3 +316,29 @@ tr.destaque { background: #fff8e6; }
   font-size: 14.5px; font-weight: 600; z-index: 150; box-shadow: var(--sombra-forte); max-width: 90vw;
 }
 .hidden { display: none !important; }
+
+/* ——— Entrar como professor (painel) ——————————————————————————— */
+.caixa-prof {
+  margin: 0 0 14px; padding: 11px 14px;
+  background: #fffdf6; border: 1px solid var(--linha); border-radius: 13px;
+  font-size: 14px; color: var(--tinta-2);
+}
+.caixa-prof.conectado {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: #f1f7ec; border-color: #cfe0c2; color: #3c5f3f;
+}
+.caixa-prof summary { cursor: pointer; font-weight: 700; color: var(--tinta); list-style: none; }
+.caixa-prof summary::-webkit-details-marker { display: none; }
+.caixa-prof summary::before { content: "▸ "; color: var(--verde); }
+.caixa-prof details[open] summary::before { content: "▾ "; }
+.prof-form { margin-top: 10px; max-width: 360px; }
+.prof-dica { font-size: 13px; line-height: 1.55; color: var(--tinta-2); margin: 0 0 10px; }
+.prof-form input { margin-bottom: 8px; }
+.prof-form button {
+  padding: 10px 18px; font-weight: 700; color: #fff; background: var(--verde); border-radius: 11px;
+}
+.prof-msg { font-size: 13px; color: var(--vinho); margin: 8px 0 0; min-height: 1px; }
+.btn-mini {
+  padding: 5px 12px; font-size: 13px; font-weight: 700;
+  color: var(--tinta-2); background: #fff; border: 1px solid var(--linha);
+}
