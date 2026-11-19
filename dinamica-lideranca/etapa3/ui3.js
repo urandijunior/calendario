@@ -1,11 +1,11 @@
 // ui3.js — Etapa 3: telas do aluno, trava de segurança e painel docente.
 
-import * as A from "./app3.js?v=6";
-import * as D from "../data.js?v=6";
-import { retrato } from "../arte.js?v=6";
-import { CENARIOS3 } from "./cenarios3.js?v=6";
-import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=6";
-import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=6";
+import * as A from "./app3.js?v=7";
+import * as D from "../data.js?v=7";
+import { retrato } from "../arte.js?v=7";
+import { CENARIOS3 } from "./cenarios3.js?v=7";
+import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=7";
+import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=7";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -199,7 +199,6 @@ $("#btn-sou-eu").addEventListener("click", async () => {
   if (E.aluno?.etapa3?.status === "concluido") return aviso("Este registro já concluiu a Etapa 3. Chame o professor.");
   $("#btn-sou-eu").disabled = true;
   try {
-    await A.sincronizarRelogio(E.sala);
     await A.iniciarAluno(E.sala, E.alunoId, { ramo: E.ramo, mao: E.mao, lider: E.lider, nomeDigitado: E.nomeDigitado, avulso: E.avulso, incompleto: E.semEquipe });
     // retoma o que já havia sido respondido (se o aluno recarregou a página)
     const e3 = E.aluno.etapa3 || {};
@@ -210,7 +209,9 @@ $("#btn-sou-eu").addEventListener("click", async () => {
     salvarSessao();
     seguirParaEtapa();
   } catch (e) {
-    aviso("Não foi possível registrar a sua entrada. Verifique a internet.");
+    aviso(e?.code === "permission-denied"
+      ? "O servidor recusou a gravação. Chame o professor: as permissões da sala precisam ser conferidas."
+      : "Não foi possível registrar a sua entrada. Verifique a internet e toque novamente.", 8000);
   } finally { $("#btn-sou-eu").disabled = false; }
 });
 
@@ -523,6 +524,16 @@ function iniciarPainel() {
 
 function renderPainelCabeca() {
   const e3 = E.salaDados?.etapa3 || {};
+  const dono = E.salaDados?.professorUid;
+  const souDono = !dono || dono === A.estado.uid;
+  let av = document.getElementById("aviso-dono");
+  if (!souDono) {
+    if (!av) { av = document.createElement("div"); av.id = "aviso-dono"; av.className = "box-info"; $("#prof-prontidao").before(av); }
+    av.innerHTML = "<b>⚠ Este não é o navegador que criou a sala.</b> Você consegue acompanhar tudo por aqui, mas <b>não consegue abrir, encerrar nem dar mais tempo</b>. Para comandar a etapa, abra o painel no mesmo computador e navegador em que criou a sala.";
+  } else if (av) av.remove();
+  $("#btn-abrir").disabled = !souDono;
+  $("#btn-encerrar").disabled = !souDono;
+  $("#btn-mais-tempo").disabled = !souDono;
   const st = e3.status || "fechada";
   const pill = $("#prof-status");
   pill.textContent = { aberta: "Aberta", encerrada: "Encerrada", fechada: "Não aberta" }[st] || st;
@@ -668,16 +679,14 @@ $("#btn-ordenar").addEventListener("click", () => {
   renderPainel();
 });
 
-$("#btn-abrir").addEventListener("click", async () => {
-  try { await A.abrirEtapa3(E.sala, $("#in-duracao").value); aviso("Etapa 3 aberta para a turma."); }
-  catch (e) { aviso("Não foi possível abrir."); }
-});
-$("#btn-encerrar").addEventListener("click", async () => {
-  try { await A.encerrarEtapa3(E.sala); aviso("Etapa 3 encerrada."); } catch (e) { aviso("Não foi possível encerrar."); }
-});
-$("#btn-mais-tempo").addEventListener("click", async () => {
-  try { await A.maisTempo(E.sala, 5, E.salaDados?.etapa3?.fimMs); aviso("+5 minutos."); } catch (e) { aviso("Não foi possível."); }
-});
+const ERRO_DONO = "Só o navegador em que esta sala foi criada pode comandar a etapa. Abra o painel no mesmo computador e navegador que você usou para criar a sala.";
+const comandar = async (f, ok) => {
+  try { await f(); aviso(ok); }
+  catch (e) { aviso(e?.code === "permission-denied" ? ERRO_DONO : "Não foi possível. Verifique a internet.", 10000); }
+};
+$("#btn-abrir").addEventListener("click", () => comandar(() => A.abrirEtapa3(E.sala, $("#in-duracao").value), "Etapa 3 aberta para a turma."));
+$("#btn-encerrar").addEventListener("click", () => comandar(() => A.encerrarEtapa3(E.sala), "Etapa 3 encerrada."));
+$("#btn-mais-tempo").addEventListener("click", () => comandar(() => A.maisTempo(E.sala, 5, E.salaDados?.etapa3?.fimMs), "+5 minutos."));
 
 $("#btn-csv").addEventListener("click", () => {
   const dados = profAlunos.filter((a) => a.etapa3?.status).map((a) => ({ a, c: corrigirAluno(a) })).filter((x) => x.c);

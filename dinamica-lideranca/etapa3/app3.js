@@ -13,8 +13,8 @@
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
-} from "../firebase.js?v=6";
-import { firebaseConfig } from "../firebase-config.js?v=6";
+} from "../firebase.js?v=7";
+import { firebaseConfig } from "../firebase-config.js?v=7";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
