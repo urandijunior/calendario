@@ -1,11 +1,11 @@
 // ui3.js — Etapa 3: telas do aluno, trava de segurança e painel docente.
 
-import * as A from "./app3.js?v=7";
-import * as D from "../data.js?v=7";
-import { retrato } from "../arte.js?v=7";
-import { CENARIOS3 } from "./cenarios3.js?v=7";
-import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=7";
-import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=7";
+import * as A from "./app3.js?v=8";
+import * as D from "../data.js?v=8";
+import { retrato } from "../arte.js?v=8";
+import { CENARIOS3 } from "./cenarios3.js?v=8";
+import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=8";
+import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=8";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -47,7 +47,9 @@ const limparUnsubs = () => { E.unsubs.forEach((f) => f && f()); E.unsubs = []; }
 
 const mmss = (ms) => {
   const t = Math.max(0, Math.round(ms / 1000));
-  return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  const dd = (n) => String(n).padStart(2, "0");
+  return h ? `${h}:${dd(m)}:${dd(s)}` : `${dd(m)}:${dd(s)}`;
 };
 
 // ---------------------------------------------------------------------------

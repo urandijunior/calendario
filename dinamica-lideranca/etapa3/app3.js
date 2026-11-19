@@ -13,8 +13,8 @@
 import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
-} from "../firebase.js?v=7";
-import { firebaseConfig } from "../firebase-config.js?v=7";
+} from "../firebase.js?v=8";
+import { firebaseConfig } from "../firebase-config.js?v=8";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -100,7 +100,7 @@ export const observarAlunos = (sala, cb) =>
 export async function abrirEtapa3(sala, duracaoMin) {
   await garantirLogin();
   await sincronizarRelogio(sala);
-  const min = Math.max(5, Number(duracaoMin) || 60);
+  const min = Math.min(300, Math.max(5, Number(duracaoMin) || 60));
   await updateDoc(refSala(sala), {
     "etapa3.status": "aberta",
     "etapa3.duracaoMin": min,
