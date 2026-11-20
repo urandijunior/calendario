@@ -1,11 +1,11 @@
 // ui3.js — Etapa 3: telas do aluno, trava de segurança e painel docente.
 
-import * as A from "./app3.js?v=10";
-import * as D from "../data.js?v=10";
-import { retrato } from "../arte.js?v=10";
-import { CENARIOS3 } from "./cenarios3.js?v=10";
-import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=10";
-import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=10";
+import * as A from "./app3.js?v=11";
+import * as D from "../data.js?v=11";
+import { retrato } from "../arte.js?v=11";
+import { CENARIOS3 } from "./cenarios3.js?v=11";
+import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=11";
+import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=11";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -263,7 +263,9 @@ function abrirCenario() {
     ? "Você recebeu a equipe ideal deste ramo porque não fechou a sua equipe na Etapa 2. Quatro das doze questões são sobre ela."
     : `Esta é a equipe que <b>você</b> montou trocando cartas na Etapa 2. Quatro das doze questões são sobre ela.`;
   const fim = E.salaDados?.etapa3?.fimMs;
-  $("#cen-tempo").innerHTML = fim ? ` O cronômetro da turma termina em <b>${mmss(fim - A.agora())}</b>.` : "";
+  $("#cen-tempo").innerHTML = fim
+    ? ` O cronômetro da turma termina em <b>${mmss(fim - A.agora())}</b>.`
+    : " <b>Não há cronômetro</b> nesta aplicação: responda com calma, mas em uma sentada só — a trava continua valendo.";
   if (E.i > 0 && E.i < TOTAL_Q) {
     $("#btn-comecar").textContent = `Retomar na questão ${E.i + 1} de ${TOTAL_Q}`;
   }
@@ -469,7 +471,12 @@ function ligarCronometro() {
   $("#relogio").classList.remove("hidden");
   E.tickTimer = setInterval(() => {
     const fim = E.salaDados?.etapa3?.fimMs;
-    if (!fim) return;
+    if (!fim) {
+      // etapa sem prazo: nada de contagem regressiva e nada de envio automático
+      $("#relogio").textContent = "sem prazo";
+      $("#relogio").classList.remove("apertado");
+      return;
+    }
     const resta = fim - A.agora();
     $("#relogio").textContent = mmss(resta);
     $("#relogio").classList.toggle("apertado", resta < 5 * 60000);
@@ -516,7 +523,12 @@ function iniciarPainel() {
   if (!E.tickTimer) {
     E.tickTimer = setInterval(() => {
       const fim = E.salaDados?.etapa3?.fimMs, st = E.salaDados?.etapa3?.status;
-      if (!fim || st !== "aberta") return;
+      if (st !== "aberta") return;
+      if (!fim) {
+        $("#prof-relogio").textContent = "sem prazo";
+        $("#prof-relogio").classList.remove("apertado");
+        return;
+      }
       const resta = fim - A.agora();
       $("#prof-relogio").textContent = mmss(resta);
       $("#prof-relogio").classList.toggle("apertado", resta < 5 * 60000);
@@ -530,14 +542,19 @@ function renderPainelCabeca() {
   // as regras liberam o campo etapa3 da sala para quem esta autenticado.
   $("#btn-abrir").disabled = false;
   $("#btn-encerrar").disabled = false;
-  $("#btn-mais-tempo").disabled = false;
+  // "+5 minutos" não faz sentido numa etapa aberta sem prazo
+  $("#btn-mais-tempo").disabled = !!e3.semPrazo && e3.status === "aberta";
   const st = e3.status || "fechada";
   const pill = $("#prof-status");
   pill.textContent = { aberta: "Aberta", encerrada: "Encerrada", fechada: "Não aberta" }[st] || st;
   pill.className = `estado-pill ${st}`;
   $("#btn-abrir").textContent = st === "aberta" ? "Reabrir / renovar tempo" : "Abrir a Etapa 3 para a turma";
-  if (e3.duracaoMin && st === "aberta") $("#in-duracao").value = String(e3.duracaoMin);
+  if (st === "aberta") {
+    if (e3.semPrazo) $("#in-duracao").value = "livre";
+    else if (e3.duracaoMin) $("#in-duracao").value = String(e3.duracaoMin);
+  }
   if (st !== "aberta") $("#prof-relogio").textContent = "--:--";
+  else if (e3.semPrazo) $("#prof-relogio").textContent = "sem prazo";
 }
 
 /** Reconstrói as 12 questões de um aluno para corrigir (4 delas são personalizadas). */

@@ -14,8 +14,8 @@ import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
-} from "../firebase.js?v=10";
-import { firebaseConfig } from "../firebase-config.js?v=10";
+} from "../firebase.js?v=11";
+import { firebaseConfig } from "../firebase-config.js?v=11";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -141,15 +141,19 @@ export const observarAlunos = (sala, cb) =>
 // ---------------------------------------------------------------------------
 // Professor
 // ---------------------------------------------------------------------------
+/** duracaoMin em minutos, ou "livre" para deixar a etapa aberta sem cronômetro. */
 export async function abrirEtapa3(sala, duracaoMin) {
   await garantirLogin();
   await sincronizarRelogio(sala);
-  const min = Math.min(300, Math.max(5, Number(duracaoMin) || 60));
+  const semPrazo = String(duracaoMin) === "livre";
+  const min = semPrazo ? null : Math.min(300, Math.max(5, Number(duracaoMin) || 60));
   await updateDoc(refSala(sala), {
     "etapa3.status": "aberta",
+    "etapa3.semPrazo": semPrazo,
     "etapa3.duracaoMin": min,
     "etapa3.iniciadoMs": agora(),
-    "etapa3.fimMs": agora() + min * 60000,
+    // sem prazo = sem fimMs: nada de cronômetro regressivo nem de envio automático
+    "etapa3.fimMs": semPrazo ? null : agora() + min * 60000,
     "etapa3.abertoPor": estado.uid,
   });
 }
