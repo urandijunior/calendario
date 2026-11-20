@@ -14,8 +14,8 @@ import {
   initializeApp, getAuth, signInAnonymously, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut,
   getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, collection, getDocs, serverTimestamp,
-} from "../firebase.js?v=9";
-import { firebaseConfig } from "../firebase-config.js?v=9";
+} from "../firebase.js?v=10";
+import { firebaseConfig } from "../firebase-config.js?v=10";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
