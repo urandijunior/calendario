@@ -1,11 +1,11 @@
 // ui3.js — Etapa 3: telas do aluno, trava de segurança e painel docente.
 
-import * as A from "./app3.js?v=11";
-import * as D from "../data.js?v=11";
-import { retrato } from "../arte.js?v=11";
-import { CENARIOS3 } from "./cenarios3.js?v=11";
-import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=11";
-import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=11";
+import * as A from "./app3.js?v=12";
+import * as D from "../data.js?v=12";
+import { retrato } from "../arte.js?v=12";
+import { CENARIOS3 } from "./cenarios3.js?v=12";
+import { questoesPessoais, corrigir, DIFIC, PONTOS_TOTAIS } from "./motor3.js?v=12";
+import { cenaRamo, cenaAbertura, faixaRamo, horaDoRamo, prepararArte } from "./arte3.js?v=12";
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => Array.from(document.querySelectorAll(s));
@@ -519,7 +519,7 @@ function iniciarPainel() {
   $("#prof-sala").textContent = E.sala;
   $("#prof-turma").textContent = E.salaDados?.turma || "";
   E.unsubs.push(A.observarSala(E.sala, (d) => { E.salaDados = d; renderPainelCabeca(); }));
-  E.unsubs.push(A.observarAlunos(E.sala, (as) => { profAlunos = as; renderPainel(); }));
+  E.unsubs.push(A.observarAlunos(E.sala, (as) => { profAlunos = as.map(normalizarE3); renderPainel(); }));
   if (!E.tickTimer) {
     E.tickTimer = setInterval(() => {
       const fim = E.salaDados?.etapa3?.fimMs, st = E.salaDados?.etapa3?.status;
@@ -570,6 +570,20 @@ function corrigirAluno(a) {
   const anul = new Set(Object.keys(e3.anuladas || {}).filter((k) => e3.anuladas[k]));
   const perd = new Set(Object.keys(perdoadas).filter((k) => perdoadas[k]));
   return { qs, res: corrigir(qs, e3.respostas || {}, anul, perd), anulBrutas: [...anul], perdoadas };
+}
+
+/**
+ * O painel reconhece o aluno pelo campo etapa3.status. Se um registro chegar com
+ * respostas mas sem status — aconteceu quando um aluno estava respondendo e o
+ * cabeçalho do etapa3 se perdeu —, o aluno sumiria das contagens e da tabela.
+ * Aqui a situação é deduzida do próprio progresso, para ninguém ficar invisível.
+ */
+function normalizarE3(a) {
+  const e3 = a.etapa3;
+  if (!e3 || e3.status) return a;
+  const temProgresso = e3.enviado || e3.i != null || Object.keys(e3.respostas || {}).length;
+  if (!temProgresso) return a;
+  return { ...a, etapa3: { ...e3, status: e3.enviado ? "concluido" : "fazendo" } };
 }
 
 function renderPainel() {
